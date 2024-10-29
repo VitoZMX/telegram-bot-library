@@ -1,0 +1,13 @@
+{
+  "name": "telegram-bot",
+  "version": "1.0.0",
+  "scripts": {
+    "zmx_caretaker_bot": "ts-node src/bots/zmx_caretaker_bot/zmx_caretaker_bot_v1.ts"
+  },
+  "dependencies": {
+    "@types/node": "^22.8.4",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "telegraf": "^4.16.3"
+  }
+}
