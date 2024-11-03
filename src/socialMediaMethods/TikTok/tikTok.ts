@@ -1,10 +1,10 @@
 import axios from 'axios';
-import { TikTokResponse } from "./types/typeTikTok";
+import { TikTokResponseType } from "./types/typeTikTok";
 
 /** Метод для получения данных со ссылки на TikTok
  @param videoUrl - принимает ссылку на видео.
- @return TikTokResponse - данные о видео. Нужно брать нужную ссылку для скачивания из него, обычно это *.play. */
-export async function getTikTokInfo(videoUrl: string): Promise<TikTokResponse> {
+ @return TikTokResponseType - данные о видео. Нужно брать нужную ссылку для скачивания из него, обычно это *.play. */
+export async function getTikTokInfo(videoUrl: string): Promise<TikTokResponseType> {
   const retryConfig = {
     maxRetries: 3, // максимальное количество попыток выполнения запроса
     delayMs: 1000, // задержка между попытками в миллисекундах

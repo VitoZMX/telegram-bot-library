@@ -1,4 +1,4 @@
-export interface TikTokResponse {
+export interface TikTokResponseType {
   data: {
     id: string;
     title: string;
