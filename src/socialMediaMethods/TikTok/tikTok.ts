@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { TikTokResponseType } from "./types/typeTikTok";
+import { TikTokResponseType } from "./types/tikTokType";
 
 /** Метод для получения данных со ссылки на TikTok
  @param videoUrl - принимает ссылку на видео.
