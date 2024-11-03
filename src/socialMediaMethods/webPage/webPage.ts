@@ -1,40 +1,48 @@
-import { chromium } from 'playwright';
 import { Logger } from "../../utils/Logger";
-
-interface ScreenshotResponse {
-  status: string;
-  screenshot: string; // Base64 строка изображения
-}
+import { Browser, chromium, Page } from 'playwright';
+import { ScreenshotResponseType, ViewportSizeType } from "./typos/webPageTypos";
 
 /** Метод для получения скриншота веб-страницы
  @param url - принимает URL любого сайта
- @return ScreenshotResponse - данные скриншота
- */
-export async function getPageScreenshot(url: string): Promise<ScreenshotResponse> {
+ @return Promise<ScreenshotResponse> - Promise с данными скриншота */
+export async function getPageScreenshot(url: string): Promise<ScreenshotResponseType> {
+  let browser: Browser | null = null;
+  let page: Page | null = null;
+
   try {
-    // Запускаем браузер
-    const browser = await chromium.launch();
-    const page = await browser.newPage(); // Создаем новую страницу
-    await page.setViewportSize({ width: 1024, height: 1350 }); // Устанавливаем viewport
+    browser = await chromium.launch();
+    page = await browser.newPage();
+
+    const viewport: ViewportSizeType = {
+      width: 1024,
+      height: 1350
+    };
+
+    await page.setViewportSize(viewport);
 
     try {
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 }); // Переходим по URL
+      await page.goto(url, {
+        waitUntil: 'networkidle',
+        timeout: 30000
+      });
     } catch (timeoutError) {
       Logger.log('Истекло время ожидания загрузки страницы, продолжаем делать частичный снимок экрана страницы');
     }
 
-    const screenshot = await page.screenshot({
+    const screenshot: Buffer = await page.screenshot({
       type: 'png',
       // fullPage: true
     });
 
-    await browser.close(); // Закрываем браузер
     return {
       status: 'success',
-      screenshot: screenshot.toString('base64')
+      screenshot
     };
   } catch (error) {
     console.error('Error getting screenshot:', error);
     throw error;
+  } finally {
+    if (page) await page.close();
+    if (browser) await browser.close();
   }
 }
