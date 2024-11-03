@@ -7,7 +7,7 @@ import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 require('dotenv').config({ path: '.env.tokens' }); // Укажите путь к вашему файлу
 
 const { Telegraf } = require('telegraf');
-const bot = new Telegraf(process.env.ZMX_CARETAKER_BOT_V1);
+const bot = new Telegraf(process.env.ZMX_CARETAKER_BOT);
 
 // Регулярное выражение для поиска ссылок TikTok
 const tiktokRegex = /(https?:\/\/)?(vm\.|www\.|m\.)?tiktok\.com\/[@A-Za-z0-9_\-.\/]+/i;
