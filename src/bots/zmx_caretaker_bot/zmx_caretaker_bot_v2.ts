@@ -56,7 +56,7 @@ class ZMXCaretakerBot {
 
   private addToQueue(ctx: Context, messageId: string): void {
     this.messageQueue.push({ ctx, messageId });
-    console.log(`[${messageId}] Сообщение добавлено в очередь. Размер очереди: ${this.messageQueue.length}`);
+    Logger.log(`Сообщение добавлено в очередь c id: [${messageId}]. Размер очереди: ${this.messageQueue.length}`);
     this.processQueue();
   }
 
@@ -68,8 +68,8 @@ class ZMXCaretakerBot {
     while (this.messageQueue.length > 0) {
       const { ctx, messageId } = this.messageQueue[0];
       try {
-        console.log(`[${messageId}] ----------------//----------------`);
-        console.log(`[${messageId}] Начало обработки ${this.messageQueue.length} сообщения из очереди`);
+        Logger.log('\n----------------//----------------//----------------//----------------\n');
+        console.log(`Начало обработки ${this.messageQueue.length} сообщения из очереди с id: [${messageId}]`);
         await this.handleMessage(ctx, messageId);
       } catch (error) {
         console.error(`[${messageId}] Ошибка при обработке сообщения из очереди:`, error);
@@ -77,7 +77,7 @@ class ZMXCaretakerBot {
       this.messageQueue.shift(); // Удаляем обработанное сообщение из очереди
       Logger.yellow(`Сообщений в очереди: ${this.messageQueue.length}`);
 
-      console.log(`[${messageId}] ----------------//----------------`);
+      Logger.log('\n----------------//----------------//----------------//----------------\n');
     }
 
     this.isProcessing = false;
@@ -114,9 +114,10 @@ class ZMXCaretakerBot {
     const userName = ctx.message.from.username || ctx.message.from.first_name;
     const { chatName, chatType, chatID } = await this.getChatInfo(ctx);
 
-    Logger.magenta(`[${messageId}] Чат: ${chatName} (${chatType})`);
-    Logger.magenta(`[${messageId}] Пользователь: ${userName}`);
-    Logger.magenta(`[${messageId}] Сообщение: ${text}`);
+    Logger.magenta('┌ Детали сообщения');
+    Logger.magenta(`├ Чат: ${chatName} (${chatType})`);
+    Logger.magenta(`├ Пользователь: ${userName}`);
+    Logger.magenta(`└ Сообщение: ${text}`);
 
     // Проверяем все паттерны ссылок
     for (const [type, pattern] of this.linkPatterns) {
@@ -201,7 +202,7 @@ class ZMXCaretakerBot {
       Logger.blue(`[${messageId}] Уведомление о неудаче получения видео отправлено в чат`);
     }
 
-    Logger.green(`[${messageId}] Обработка ссылки Instagram Reels Url завершено УСПЕШНО!`);
+    Logger.green(`[${messageId}] Обработка ссылки Instagram Reels завершено УСПЕШНО!`);
   }
 
   private async chatServiceWithWebPageUrl(
