@@ -21,6 +21,7 @@ class ZMXCaretakerBot {
   private messageQueue: { ctx: Context; messageId: string }[] = [];
   private linkPatterns: Map<LinkType, LinkPattern> = new Map();
   private isProcessing: boolean = false;
+  private username: string = '';
   private bot: Telegraf;
 
   constructor() {
@@ -49,7 +50,9 @@ class ZMXCaretakerBot {
 
   private initializeBot(): void {
     this.bot.on('message', async (ctx: Context) => {
-      const messageId = `${ctx.message?.message_id}-${Date.now()}`;
+      this.username = ctx.message?.from?.username || ctx.message?.from?.first_name || 'unknown';
+
+      const messageId = `${ctx.message?.message_id}-${ctx.message?.chat.id}`;
       this.addToQueue(ctx, messageId);
     });
   }
@@ -110,13 +113,20 @@ class ZMXCaretakerBot {
   private async handleMessage(ctx: Context, messageId: string): Promise<void> {
     if (!ctx.message || !('text' in ctx.message)) return;
 
-    const text = ctx.message.text;
-    const userName = ctx.message.from.username || ctx.message.from.first_name;
+    const dateMessage = new Date(ctx.message.date * 1000).toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const text = ctx.message.text.replace(/[\r\n]+/g, ' ');
     const { chatName, chatType, chatID } = await this.getChatInfo(ctx);
 
     Logger.magenta('┌ Детали сообщения');
     Logger.magenta(`├ Чат: ${chatName} (${chatType})`);
-    Logger.magenta(`├ Пользователь: ${userName}`);
+    Logger.magenta(`├ Дата: ${dateMessage}`);
+    Logger.magenta(`├ Пользователь: ${this.username}`);
     Logger.magenta(`└ Сообщение: ${text}`);
 
     // Проверяем все паттерны ссылок
@@ -125,7 +135,7 @@ class ZMXCaretakerBot {
       if (match) {
         Logger.yellow(`[${messageId}] В чате найдена ссылка типа ${type}: ${match[0]}`);
         try {
-          await pattern.processor(ctx, match[0], userName, messageId, chatID);
+          await pattern.processor(ctx, match[0], messageId, chatID);
         } catch (error) {
           await this.handleError(error, ctx, messageId);
         }
@@ -137,20 +147,26 @@ class ZMXCaretakerBot {
   private async chatServiceWithTikTokVideo(
     ctx: Context,
     url: string,
-    username: string,
     messageId: string,
   ): Promise<void> {
     const tilTokData = await getTikTokInfo(url).then((res) => res.data);
     const tilTokUrl = tilTokData.play;
     const tilTokAuthor = tilTokData.author.nickname;
+    const tilTokPlayCount = tilTokData.play_count;
+    const tilTokLikeCount = tilTokData.digg_count;
+    const tilTokCommentCount = tilTokData.comment_count;
     console.log(`[${messageId}] URL TikTok получен:`, tilTokUrl);
-    console.log(`[${messageId}] Автор TikTok получен:`, tilTokAuthor);
+    console.log(`[${messageId}] TikTok информация: автор: "${tilTokAuthor}"; число просмотров: ${tilTokPlayCount}; лайков: ${tilTokLikeCount}; комментариев: ${tilTokCommentCount}`);
 
-    await ctx.deleteMessage();
-    Logger.log(`[${messageId}] Исходное сообщение удалено`);
-
-    await ctx.reply(`@${username} ссылка удалена`, { disable_notification: true });
-    Logger.blue(`[${messageId}] Уведомление об удалении ссылки отправлено в чат`);
+    try {
+      await ctx.deleteMessage();
+      Logger.log(`[${messageId}] Исходное сообщение удалено`);
+      await ctx.reply(`@${this.username} TikTok ссылка удалена`, { disable_notification: true });
+      Logger.blue(`[${messageId}] Уведомление об удалении ссылки отправлено в чат`);
+    } catch (error) {
+      Logger.red(`[${messageId}] Не удалось удалить сообщение: недостаточно прав.`);
+      // Продолжаем выполнение без удаления сообщения
+    }
 
     // Определяем тип файла по расширению
     if (tilTokUrl.toLowerCase().endsWith('.mp3')) {
@@ -161,7 +177,7 @@ class ZMXCaretakerBot {
     } else {
       await ctx.sendVideo(tilTokUrl, {
         disable_notification: true,
-        caption: `Автор видео: «${tilTokAuthor}»`
+        caption: `Автор видео: «${tilTokAuthor}»\nПросмотров: ${tilTokPlayCount}\nЛайков: ${tilTokLikeCount}\nКомментариев: ${tilTokCommentCount}`
       });
 
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
@@ -173,7 +189,6 @@ class ZMXCaretakerBot {
   private async chatServiceWithInstagramReelsVideo(
     ctx: Context,
     url: string,
-    username: string,
     messageId: string,
   ): Promise<void> {
 
@@ -181,11 +196,15 @@ class ZMXCaretakerBot {
       const instagramReelsUrl = await getInstagramVideoUrl(url);
       console.log(`[${messageId}] URL Instagram Reels получен:`, instagramReelsUrl);
 
-      await ctx.deleteMessage();
-      Logger.log(`[${messageId}] Исходное сообщение удалено`);
-
-      await ctx.reply(`@${username} Instagram ссылка удалена`, { disable_notification: true });
-      Logger.blue(`[${messageId}] Уведомление об удалении ссылки отправлено в чат`);
+      try {
+        await ctx.deleteMessage();
+        Logger.log(`[${messageId}] Исходное сообщение удалено`);
+        await ctx.reply(`@${this.username} Instagram ссылка удалена`, { disable_notification: true });
+        Logger.blue(`[${messageId}] Уведомление об удалении Instagram ссылки отправлено в чат`);
+      } catch (error) {
+        Logger.red(`[${messageId}] Не удалось удалить сообщение: недостаточно прав.`);
+        // Продолжаем выполнение без удаления сообщения
+      }
 
       await ctx.sendVideo(instagramReelsUrl, {
         disable_notification: true
@@ -210,13 +229,12 @@ class ZMXCaretakerBot {
     url: string,
     messageId: string,
   ): Promise<void> {
-    const logPrefix = `[${messageId}]`;
 
     try {
-      console.log(`${logPrefix} Начало обработки скриншота для ${url}`);
+      console.log(`[${messageId}] Начало обработки скриншота для ${url}`);
 
       const screenshotData: ScreenshotResponseType = await getPageScreenshot(url);
-      Logger.log(`${logPrefix} Скриншот создан`);
+      Logger.log(`[${messageId}] Скриншот создан`);
 
       const photoOptions = {
         source: screenshotData.screenshot
@@ -229,7 +247,7 @@ class ZMXCaretakerBot {
             reply_to_message_id: ctx.message.message_id,
           });
         } catch {
-          Logger.log(`${logPrefix} Не удалось ответить на исходное сообщение, отправляю новым сообщением`);
+          Logger.log(`[${messageId}] Не удалось ответить на исходное сообщение, отправляю новым сообщением`);
           await ctx.sendPhoto(photoOptions, {
             disable_notification: true,
             caption: `Скриншот станицы: ${url}`
@@ -241,10 +259,10 @@ class ZMXCaretakerBot {
         });
       }
 
-      Logger.blue(`${logPrefix} Скриншот отправлен в чат`);
-      Logger.green(`${logPrefix} Обработка ссылки WebPage завершена УСПЕШНО!`);
+      Logger.blue(`[${messageId}] Скриншот отправлен в чат`);
+      Logger.green(`[${messageId}] Обработка ссылки WebPage завершена УСПЕШНО!`);
     } catch (error) {
-      console.error(`${logPrefix} Ошибка при обработке WebPage:`, error);
+      console.error(`[${messageId}] Ошибка при обработке WebPage:`, error);
       throw new Error(`Ошибка обработки WebPage: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     }
   }
@@ -254,7 +272,7 @@ class ZMXCaretakerBot {
     console.log(error);
 
     await ctx.reply('Произошла ошибка', { disable_notification: true });
-    Logger.blue('В чат отправлено сообщение об ошибке')
+    Logger.blue(`[${messageId}] В чат отправлено сообщение об ошибке`)
 
     if (error.message === 'Promise timeout') {
       Logger.red(`[${messageId}] Обнаружен таймаут, перезапуск бота...`);
