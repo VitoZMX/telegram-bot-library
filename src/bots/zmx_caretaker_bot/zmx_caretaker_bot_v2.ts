@@ -1,5 +1,6 @@
 import { Logger } from "../../utils/Logger";
 import { Context, Telegraf } from 'telegraf';
+import { formatNumber } from "../../utils/formatNumber";
 import { LinkPattern } from "./types/ZMXCaretakerBotType";
 import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
@@ -177,7 +178,7 @@ class ZMXCaretakerBot {
     } else {
       await ctx.sendVideo(tilTokUrl, {
         disable_notification: true,
-        caption: `Автор видео: «${tilTokAuthor}»\nПросмотров: ${tilTokPlayCount}\nЛайков: ${tilTokLikeCount}\nКомментариев: ${tilTokCommentCount}`
+        caption: `Автор видео: «${tilTokAuthor}»\nПросмотров: ${formatNumber(tilTokPlayCount)}\nЛайков: ${formatNumber(tilTokLikeCount)}\nКомментариев: ${formatNumber(tilTokCommentCount)}`
       });
 
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
