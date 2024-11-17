@@ -29,6 +29,8 @@ export async function getPageScreenshot(url: string): Promise<ScreenshotResponse
       Logger.log('Истекло время ожидания загрузки страницы, продолжаем делать частичный снимок экрана страницы');
     }
 
+    await page.waitForTimeout(5000);
+
     const screenshot: Buffer = await page.screenshot({
       type: 'png',
       // fullPage: true
