@@ -21,10 +21,17 @@ export async function getPageScreenshot(url: string): Promise<ScreenshotResponse
     await page.setViewportSize(viewport);
 
     try {
-      await page.goto(url, {
-        waitUntil: 'networkidle',
-        timeout: 30000
-      });
+      await page.goto(url);
+
+      await Promise.race([
+        Promise.all([
+          page.waitForLoadState('domcontentloaded'),
+          page.waitForLoadState('load'),
+          page.waitForLoadState('networkidle'),
+        ]),
+        // Таймаут как fallback если что-то зависнет
+        new Promise(resolve => setTimeout(resolve, 30000))
+      ]);
     } catch (timeoutError) {
       Logger.log('Истекло время ожидания загрузки страницы, продолжаем делать частичный снимок экрана страницы');
     }
@@ -44,7 +51,7 @@ export async function getPageScreenshot(url: string): Promise<ScreenshotResponse
     console.error('Error getting screenshot:', error);
     throw error;
   } finally {
-    if (page) await page.close();
-    if (browser) await browser.close();
+    await page?.close();
+    await browser?.close();
   }
 }
