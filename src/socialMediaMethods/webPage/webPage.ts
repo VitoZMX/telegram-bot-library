@@ -21,6 +21,20 @@ export async function getPageScreenshot(url: string): Promise<ScreenshotResponse
     await page.setViewportSize(viewport);
 
     try {
+      const response = await page.request.get(url);
+
+      if (!response || !response.ok()) {
+        Logger.red(`Не удалось загрузить страницу. Статус: ${response?.status() || 'неизвестен'}`);
+        throw new Error(`Страница не найдена или недоступна: ${url}`);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        Logger.red(`Ошибка при загрузке страницы ${url}: ${error.message}`);
+      }
+      throw new Error(`Не удалось получить доступ к странице: ${url}`);
+    }
+
+    try {
       await page.goto(url);
 
       await Promise.race([
@@ -48,7 +62,7 @@ export async function getPageScreenshot(url: string): Promise<ScreenshotResponse
       screenshot
     };
   } catch (error) {
-    console.error('Error getting screenshot:', error);
+    Logger.red(`Ошибка получения скриншота: ${error}`);
     throw error;
   } finally {
     await page?.close();
