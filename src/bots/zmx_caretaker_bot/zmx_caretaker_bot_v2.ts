@@ -263,8 +263,7 @@ class ZMXCaretakerBot {
       Logger.blue(`[${messageId}] Скриншот отправлен в чат`);
       Logger.green(`[${messageId}] Обработка ссылки WebPage завершена УСПЕШНО!`);
     } catch (error) {
-      console.error(`[${messageId}] Ошибка при обработке WebPage:`, error);
-      throw new Error(`Ошибка обработки WebPage: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      Logger.red(`[${messageId}] Ошибка при обработке WebPage: ${error}`);
     }
   }
 
