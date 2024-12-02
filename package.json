@@ -3,7 +3,7 @@
   "version": "24.12",
   "scripts": {
     "build": "tsc",
-    "build:ecosystem": "tsc ecosystem.config.ts --outDir dist",
+    "build:ecosystem": "tsc ecosystem.config.ts --outDir build",
     "start:pm2": "npm run build && npm run build:ecosystem && pm2 start build/ecosystem.config.js",
     "zmx_caretaker_bot2": "ts-node src/bots/zmx_caretaker_bot/zmx_caretaker_bot_v2.ts",
     "stop": "pm2 stop all"
