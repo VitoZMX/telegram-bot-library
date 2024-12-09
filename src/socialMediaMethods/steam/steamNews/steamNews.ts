@@ -29,7 +29,7 @@ export const getTopSteamNews = async (): Promise<SteamNewsItem[]> => {
 const getSteamNews = async (appId: number): Promise<SteamNewsItem[]> => {
   try {
     const response = await axios.get<SteamNewsResponse>(
-      `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appId}&count=2&maxlength=300&l=russian`
+      `https://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid=${appId}&count=3`
     );
     Logger.log(`Получены новости Steam для приложения ${appId}`);
     return response.data.appnews.newsitems;
@@ -38,4 +38,3 @@ const getSteamNews = async (appId: number): Promise<SteamNewsItem[]> => {
     throw error;
   }
 };
-
