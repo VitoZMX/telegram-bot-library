@@ -313,7 +313,7 @@ class BotQuill {
         });
       }
 
-      const watermarkPath = 'file://' + path.resolve(__dirname, '../../img/zmx.png').replace(/\\/g, '/');
+      const watermarkPath = 'https://github.com/VitoZMX/telegram-bot-library/blob/main/src/img/zmx.png';
 
       const mediaWithWatermark = await this.addWatermarkToPhotos(
         mediaItem,
