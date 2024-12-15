@@ -2,7 +2,7 @@
   "name": "telegram-bot",
   "version": "24.12",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-assets",
     "build:ecosystem": "tsc ecosystem.config.ts --outDir build",
     "copy-assets": "cpx src/**/*.png build/src",
     "start:pm2": "npm run build && npm run build:ecosystem && pm2 start build/ecosystem.config.js",
