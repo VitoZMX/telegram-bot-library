@@ -262,7 +262,7 @@ class BotQuill {
           if (group) {
             // Формируем массив для медиа группы
             const mediaGroup = await this.createMediaGroup(group);
-            const watermarkPath = 'file://' + path.resolve(__dirname, '../../img/zmx.png').replace(/\\/g, '/');
+            const watermarkPath = 'https://github.com/VitoZMX/telegram-bot-library/blob/main/src/img/zmx.png';
 
             // @ts-ignore
             const mediaGroupWithWaterMark = await this.addWatermarkToPhotos(
