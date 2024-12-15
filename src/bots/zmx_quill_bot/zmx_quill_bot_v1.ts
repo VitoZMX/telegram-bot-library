@@ -71,7 +71,11 @@ class BotQuill {
     this.isProcessing = false;
   }
 
-  async addWatermarkToPhotos(mediaGroup: MediaItem[], watermarkPath: string, chatId: number, watermarkPathToTelegram?: boolean): Promise<MediaItem[]> {
+  async addWatermarkToPhotos(mediaGroup: MediaItem[],  chatId: number, watermarkPath?: string, watermarkPathToTelegram?: boolean): Promise<MediaItem[]> {
+    if(!watermarkPath){
+      watermarkPath = 'file://' + path.resolve(__dirname, '../../img/zmx.png').replace(/\\/g, '/');
+    }
+
     Logger.log(`Добавление водяного знака на картинки`)
     const updatedMediaGroup: MediaItem[] = [];
     let watermarkBuffer: Buffer;
@@ -262,12 +266,10 @@ class BotQuill {
           if (group) {
             // Формируем массив для медиа группы
             const mediaGroup = await this.createMediaGroup(group);
-            const watermarkPath = 'https://github.com/VitoZMX/telegram-bot-library/blob/main/src/img/zmx.png';
 
             // @ts-ignore
             const mediaGroupWithWaterMark = await this.addWatermarkToPhotos(
               mediaGroup,
-              watermarkPath,
               //@ts-ignore
               ctx.chat?.id
             );
@@ -313,11 +315,8 @@ class BotQuill {
         });
       }
 
-      const watermarkPath = 'https://github.com/VitoZMX/telegram-bot-library/blob/main/src/img/zmx.png';
-
       const mediaWithWatermark = await this.addWatermarkToPhotos(
         mediaItem,
-        watermarkPath,
         // @ts-ignore
         ctx.chat?.id
       );
