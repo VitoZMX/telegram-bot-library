@@ -60,6 +60,8 @@ class ZMXCaretakerBot {
   }
 
   private initializeBot(): void {
+    this.bot.command('party', (ctx) => this.sendPartyPoll(ctx));
+
     this.bot.on('message', async (ctx: Context) => {
       this.username = ctx.message?.from?.username || ctx.message?.from?.first_name || 'unknown';
       this.botName = `@${this.bot.botInfo?.username}`;
@@ -67,8 +69,6 @@ class ZMXCaretakerBot {
       const messageId = `${ctx.message?.message_id}-${ctx.message?.chat.id}`;
       this.addToQueue(ctx, messageId);
     });
-
-    this.bot.command('party', (ctx) => this.sendPartyPoll(ctx));
   }
 
   private addToQueue(ctx: Context, messageId: string): void {
