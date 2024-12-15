@@ -4,6 +4,7 @@
   "scripts": {
     "build": "tsc",
     "build:ecosystem": "tsc ecosystem.config.ts --outDir build",
+    "copy-assets": "cpx src/**/*.png build/src",
     "start:pm2": "npm run build && npm run build:ecosystem && pm2 start build/ecosystem.config.js",
     "stop": "pm2 stop all",
     "zmx_caretaker_bot3": "ts-node src/bots/zmx_caretaker_bot/zmx_caretaker_bot_v3.ts",
