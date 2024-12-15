@@ -19,7 +19,7 @@ class BotQuill {
   private readonly channelZMXGamesName: string;
   private readonly token_ZMX_QUILL_BOT: string;
   private isProcessing: boolean = false;
-  private mediaGroups: { [key: string]: any[] } = {}; // Хранилище для медиагрупп
+  private mediaGroups: { [key: string]: any[] } = {}; // Хранилище для медиа групп
   private newsCheckInterval: NodeJS.Timeout | null = null;
   private processingGroups: { [key: string]: boolean } = {}; // Хранилище флагов обработки групп
   private messageQueue: { ctx: MyContext; messageId: string }[] = [];
@@ -72,6 +72,7 @@ class BotQuill {
   }
 
   async addWatermarkToPhotos(mediaGroup: MediaItem[], watermarkPath: string, chatId: number, watermarkPathToTelegram?: boolean): Promise<MediaItem[]> {
+    Logger.log(`Добавление водяного знака на картинки`)
     const updatedMediaGroup: MediaItem[] = [];
     let watermarkBuffer: Buffer;
 
@@ -156,20 +157,25 @@ class BotQuill {
   }
 
   async getTelegramFileUrl(fileId: string): Promise<string> {
-    // Реализация метода получения URL файла Telegram по file_id, с использованием Telegram Bot API
+    Logger.log(`Загрузка файла из телеграмма`)
+
+    // Получения URL файла Telegram по file_id, с использованием Telegram Bot API
     const file = await this.bot.telegram.getFile(fileId);
     return `https://api.telegram.org/file/bot${this.token_ZMX_QUILL_BOT}/${file.file_path}`;
   }
 
   async uploadToTelegram(buffer: Buffer, chatId: number): Promise<{ file_id: string }> {
-    // Реализация загрузки файла в Telegram
     const response = await this.bot.telegram.sendPhoto(chatId, { source: buffer });
-    // Удалить сообщение после отправки
+    Logger.blue(`Файл отправлен в телеграмм`)
+
     await this.bot.telegram.deleteMessage(chatId, response.message_id);
+    Logger.blue(`Сообщение с файлом удалено из чата`)
+
     return response.photo[response.photo.length - 1]; // Вернуть самый крупный вариант фото
   }
 
-  createMediaGroup(messages: any[]): MediaItem[] {
+  async createMediaGroup(messages: any[]): Promise<MediaItem[]> {
+    Logger.log(`Создание медиа группы`)
     const mediaGroup: MediaItem[] = [];
 
     // Проверяем, есть ли caption в первом сообщении
@@ -197,10 +203,10 @@ class BotQuill {
       }
     }
 
-    //У первого элемента в массиве вставляется текст в HTML разметке
+    // У первого элемента в массиве вставляется текст в HTML разметке
     mediaGroup[0] = {
       ...mediaGroup[0],
-      caption: this.parseMessageLinks(firstMessageCaption, firstMessageCaptionEntities),
+      caption: await this.parseMessageLinks(firstMessageCaption, firstMessageCaptionEntities),
       parse_mode: 'HTML'
     };
 
@@ -211,64 +217,19 @@ class BotQuill {
     if (ctx.from?.id !== this.adminId) return;
     const message = ctx.message;
     if (!message) return;
+    Logger.magenta(`Обработка сообщения с id: ${message.message_id}`);
 
     try {
       // Проверяем, содержит ли сообщение media_group_id
-      //@ts-ignore
+      // @ts-ignore
       if (message.media_group_id) {
-        //@ts-ignore
-        const groupId = message.media_group_id;
-
-        // Инициализация массива для группы, если ещё нет
-        if (!this.mediaGroups[groupId]) {
-          this.mediaGroups[groupId] = [];
-        }
-
-        // Добавляем сообщение в группу
-        this.mediaGroups[groupId].push(message);
-        console.log(`Сообщение добавлено в медиагруппу ${groupId}`);
-
-        // Если группа уже обрабатывается, не запускаем новый таймер
-        if (!this.processingGroups[groupId]) {
-          this.processingGroups[groupId] = true; // Устанавливаем флаг обработки
-
-          // Обрабатываем группу через некоторое время
-          setTimeout(async () => {
-            try {
-              const group = this.mediaGroups[groupId];
-
-              if (group) {
-                // Формируем массив для медиагруппы
-                const mediaGroup = this.createMediaGroup(group);
-                const channelInfo = await ctx.telegram.getChat(this.channelZMXGamesId)
-
-                const watermarkPath = 'file://' + path.resolve(__dirname, '../../img/zmx.png').replace(/\\/g, '/');
-                // @ts-ignore
-                const mediaGroupWithWaterMark = await this.addWatermarkToPhotos(mediaGroup, watermarkPath, ctx.chat?.id)
-                // const mediaGroupWithWaterMark = await this.addWatermarkToPhotos(mediaGroup, channelInfo.photo.big_file_id || '', ctx.chat?.id) // вставить логотип канала
-
-                if (mediaGroup.length > 0) {
-
-                  // @ts-ignore
-                  const messages = await ctx.replyWithMediaGroup(mediaGroupWithWaterMark);
-                  const messageIds = messages.map((message) => message.message_id);
-
-                  // @ts-ignore ToDo отправить кнопки после сообщения
-                  // await this.sendKeyboard(ctx, messageIds, messages[0].media_group_id)
-                  console.log(`Медиагруппа ${groupId} обработана и удалена.`);
-                }
-
-                // Удаляем медиагруппу из хранилища после обработки
-                delete this.mediaGroups[groupId];
-              }
-            } catch (error) {
-              console.error(`Ошибка при обработке медиагруппы ${groupId}:`, error);
-            }
-          }, 1000); // Ждём 1 секунду для получения всех сообщений в группе
-        }
+        Logger.magenta(`В сообщение обнаружена медиа группа`)
+        await this.handleMediaGroupMessage(ctx, message);
+      } else {
+        Logger.magenta(`Обнаружена простое сообщение`)
+        await this.handleSingleMessage(ctx, message);
       }
 
-      Logger.green('Сообщение успешно обработано и разослано');
     } catch (error) {
       Logger.red('Ошибка при обработке сообщения');
       console.error(error);
@@ -276,7 +237,102 @@ class BotQuill {
     }
   }
 
+  private async handleMediaGroupMessage(ctx: MyContext, message: any): Promise<void> {
+    // @ts-ignore
+    const groupId = message.media_group_id;
+
+    // Инициализация массива для группы, если ещё нет
+    if (!this.mediaGroups[groupId]) {
+      this.mediaGroups[groupId] = [];
+    }
+
+    // Добавляем сообщение в группу
+    this.mediaGroups[groupId].push(message);
+    Logger.log(`Сообщение добавлено в медиа группу ${groupId}`);
+
+    // Если группа уже обрабатывается, не запускаем новый таймер
+    if (!this.processingGroups[groupId]) {
+      this.processingGroups[groupId] = true; // Устанавливаем флаг обработки
+
+      // Обрабатываем группу через некоторое время
+      setTimeout(async () => {
+        try {
+          const group = this.mediaGroups[groupId];
+
+          if (group) {
+            // Формируем массив для медиа группы
+            const mediaGroup = await this.createMediaGroup(group);
+            const watermarkPath = 'file://' + path.resolve(__dirname, '../../img/zmx.png').replace(/\\/g, '/');
+
+            // @ts-ignore
+            const mediaGroupWithWaterMark = await this.addWatermarkToPhotos(
+              mediaGroup,
+              watermarkPath,
+              //@ts-ignore
+              ctx.chat?.id
+            );
+
+            if (mediaGroup.length > 0) {
+              // @ts-ignore
+              const messages = await ctx.replyWithMediaGroup(mediaGroupWithWaterMark);
+              Logger.blue(`Медиа группа отправлена в чат`)
+              const messageIds = messages.map((message) => message.message_id);
+
+              Logger.green(`Медиа группа ${groupId} обработана и удалена.`);
+            }
+
+            // Удаляем медиа группу из хранилища после обработки
+            delete this.mediaGroups[groupId];
+          }
+        } catch (error) {
+          console.error(`Ошибка при обработке медиа группы ${groupId}:`, error);
+        }
+      }, 2000); // Ждём 2 секунды для получения всех сообщений в группе
+    }
+  }
+
+  private async handleSingleMessage(ctx: MyContext, message: any): Promise<void> {
+    // Проверяем, есть ли фото в сообщении
+    if (message.photo || message.video) {
+      const mediaItem: MediaItem[] = [];
+
+      if (message.photo) {
+        const largestPhoto = message.photo[message.photo.length - 1];
+        mediaItem.push({
+          type: 'photo',
+          media: largestPhoto.file_id,
+          caption: await this.parseMessageLinks(message.caption || '', message.caption_entities),
+          parse_mode: 'HTML'
+        });
+      } else if (message.video) {
+        mediaItem.push({
+          type: 'video',
+          media: message.video.file_id,
+          caption: await this.parseMessageLinks(message.caption || '', message.caption_entities),
+          parse_mode: 'HTML'
+        });
+      }
+
+      const watermarkPath = 'file://' + path.resolve(__dirname, '../../img/zmx.png').replace(/\\/g, '/');
+
+      const mediaWithWatermark = await this.addWatermarkToPhotos(
+        mediaItem,
+        watermarkPath,
+        // @ts-ignore
+        ctx.chat?.id
+      );
+
+      if (mediaWithWatermark.length > 0) {
+        // @ts-ignore
+        await ctx.replyWithMediaGroup(mediaWithWatermark);
+        Logger.blue(`сообщение без медиа группа отправлен в чат`)
+      }
+    }
+  }
+
   private async sendKeyboard(ctx: MyContext, messageID: number[], media_group_id: number): Promise<void> {
+    Logger.log(`Отправка клавиатуры`)
+
     const keyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Опубликовать', `publish_${media_group_id}`),
@@ -286,17 +342,32 @@ class BotQuill {
     ]);
 
     await ctx.reply('Выберите действие:', keyboard);
+    Logger.blue(`Клавиатура отправлена в чат`)
   }
 
+  private async getChannelTitle(): Promise<string> {
+    try {
+      Logger.log(`Получение имени новостного канала`)
+      const channelInfo = await this.bot.telegram.getChat(this.channelZMXGamesId);
+      // @ts-ignore
+      return channelInfo.title || 'на новости';
+    } catch (error) {
+      Logger.red(`Ошибка получения информации о канале`)
+      console.error('Ошибка получения информации о канале:', error);
+      return 'на новости';
+    }
+  }
 
-  parseMessageLinks(caption: string, caption_entities?: MessageEntity[]): string {
+  private async parseMessageLinks(caption: string, caption_entities?: MessageEntity[]): Promise<string> {
     const chanelName = this.channelZMXGamesName.replace('@', '');
-    const followingText = `\n\nПодписаться: <a href="https://t.me/${chanelName}"><b>ZMX Games Zone</b></a>`
+    const channelTitle = await this.getChannelTitle();
+    const followingText = `\n\nПодписаться: <a href="https://t.me/${chanelName}"><b>${channelTitle}</b></a>`
 
     // Если нет caption или caption_entities, возвращаем оригинальный caption
     if (!caption || !caption_entities) {
       return caption || '';
     }
+    Logger.log(`Формирования текста со ссылками для публикации`)
 
     // Сортируем сущности по смещению в обратном порядке
     const sortedEntities = caption_entities
@@ -335,22 +406,22 @@ class BotQuill {
       if (mediaGroupId) {
         const groupMessages = [];
 
-        // Собираем все сообщения из медиагруппы по переданным ID
+        // Собираем все сообщения из медиа группы по переданным ID
         for (const id of messageIds) {
           // @ts-ignore
           const message = await ctx.telegram.getMessage(ctx.chat!.id, id);
           groupMessages.push(message);
         }
 
-        // Формируем массив для медиагруппы
-        const mediaGroup = this.createMediaGroup(groupMessages);
-        const channelInfo = await ctx.telegram.getChat(this.channelZMXGamesId);
+        // Формируем массив для медиа группы
+        const mediaGroup = await this.createMediaGroup(groupMessages);
 
         if (mediaGroup.length > 0) {
-          // Отправляем медиагруппу в канал
+          // Отправляем медиа группу в канал
           // @ts-ignore
           const messages = await ctx.telegram.sendMediaGroup(this.channelZMXGamesId, mediaGroup);
-          console.log(`Медиагруппа с ID ${mediaGroupId} успешно опубликована.`);
+          console.log(`Медиа группа с ID ${mediaGroupId} успешно опубликована.`);
+          Logger.blue(`Медиа группа опубликована в канале`)
 
           // Опционально: обработка отправленных сообщений, например, добавление кнопок
           const sentMessageIds = messages.map((msg) => msg.message_id);
@@ -358,7 +429,7 @@ class BotQuill {
           await this.sendKeyboard(ctx, sentMessageIds, messages[0].media_group_id);
         }
       } else {
-        // Если это не медиагруппа, пересылаем сообщения по отдельности
+        // Если это не медиа группа, пересылаем сообщения по отдельности
         for (const id of messageIds) {
           await ctx.telegram.copyMessage(this.channelZMXGamesId, ctx.chat!.id, id);
         }
@@ -415,6 +486,7 @@ class BotQuill {
         disable_web_page_preview: true
       });
 
+      Logger.blue(`Статистика онлайна в играх отправлена в чат`)
     } catch (error) {
       Logger.red(`Ошибка при получении лидеров продаж: ${error}`);
       console.log('Ошибка при получении лидеров продаж:', error);
