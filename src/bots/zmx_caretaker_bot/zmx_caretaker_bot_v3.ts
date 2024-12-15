@@ -67,6 +67,8 @@ class ZMXCaretakerBot {
       const messageId = `${ctx.message?.message_id}-${ctx.message?.chat.id}`;
       this.addToQueue(ctx, messageId);
     });
+
+    this.bot.command('party', (ctx) => this.sendPartyPoll(ctx));
   }
 
   private addToQueue(ctx: Context, messageId: string): void {
@@ -325,6 +327,23 @@ class ZMXCaretakerBot {
       Logger.green(`[${messageId}] Обработка ссылки WebPage завершена УСПЕШНО!`);
     } catch (error) {
       Logger.red(`[${messageId}] Ошибка при обработке WebPage: ${error}`);
+    }
+  }
+
+  async sendPartyPoll(ctx: Context) {
+    try {
+      await ctx.sendPoll('🚨🚨🚨 Объявлен сбор!!!', [
+        'Приду ✅',
+        'Не приду ❌',
+        'Опоздаю ⏰'
+      ], {
+        is_anonymous: false,
+        allows_multiple_answers: false,
+      });
+      Logger.blue(`Опрос на сбор отправлен в чат`);
+    } catch (error) {
+      Logger.red(`Ошибка отправки опроса в чат`);
+      console.error('Ошибка при отправке опроса:', error);
     }
   }
 
