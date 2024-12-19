@@ -26,5 +26,6 @@ export interface TikTokResponseType {
       nickname: string;
       avatar: string;
     };
+    images?: string[]
   };
 }
