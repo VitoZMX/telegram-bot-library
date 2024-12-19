@@ -232,6 +232,30 @@ class ZMXCaretakerBot {
       // Продолжаем выполнение без удаления сообщения
     }
 
+    // Проверка наличия картинок из поста
+    if (tilTokData.images) {
+      try {
+        // Преобразование в медиа группу
+        const mediaGroup: InputMediaPhoto<string>[] = tilTokData.images.map((url: string) => ({
+          type: 'photo',
+          media: url,
+        }));
+
+        // У первого элемента в массиве вставляется текст в HTML разметке
+        mediaGroup[0] = {
+          ...mediaGroup[0],
+          caption: textDescriptionTikTokPost,
+          parse_mode: 'HTML'
+        };
+
+        await ctx.replyWithMediaGroup(mediaGroup);
+        Logger.blue(`[${messageId}] Медиа группа с текстом о посте TikTok отправлены в чат`);
+      } catch (error) {
+        Logger.red(`[${messageId}] Ошибка отправки медиа группы TikTok: ${error}`);
+        console.error(error);
+      }
+    }
+
     // Определяем тип файла по расширению
     if (tilTokUrl.toLowerCase().endsWith('.mp3')) {
       await ctx.sendAudio(tilTokUrl, {
