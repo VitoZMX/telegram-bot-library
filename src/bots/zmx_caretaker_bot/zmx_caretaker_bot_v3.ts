@@ -1,6 +1,7 @@
 import { Logger } from "../../utils/Logger";
 import { Context, Telegraf } from 'telegraf';
 import { formatNumber } from "../../utils/formatNumber";
+import { InputMediaPhoto } from "@telegraf/types/methods";
 import { LinkPattern } from "./types/ZMXCaretakerBotType";
 import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
