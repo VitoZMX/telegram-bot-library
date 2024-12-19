@@ -221,7 +221,7 @@ class ZMXCaretakerBot {
     const tilTokCommentCount = tilTokData.comment_count;
     const textDescriptionTikTokPost = `Автор видео: «${tilTokAuthor}»\nПросмотров: ${formatNumber(tilTokPlayCount)}\nЛайков: ${formatNumber(tilTokLikeCount)}\nКомментариев: ${formatNumber(tilTokCommentCount)}`
     console.log(`[${messageId}] URL TikTok получен:`, tilTokUrl);
-    console.log(`[${messageId}] TikTok информация: автор: "${tilTokAuthor}"; число просмотров: ${tilTokPlayCount}; лайков: ${tilTokLikeCount}; комментариев: ${tilTokCommentCount}`);
+    console.log(`[${messageId}] TikTok информация: ${textDescriptionTikTokPost}`);
 
     try {
       await ctx.deleteMessage();
@@ -266,7 +266,7 @@ class ZMXCaretakerBot {
     } else {
       await ctx.sendVideo(tilTokUrl, {
         disable_notification: true,
-        caption: `Автор видео: «${tilTokAuthor}»\nПросмотров: ${formatNumber(tilTokPlayCount)}\nЛайков: ${formatNumber(tilTokLikeCount)}\nКомментариев: ${formatNumber(tilTokCommentCount)}`
+        caption: textDescriptionTikTokPost
       });
 
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
