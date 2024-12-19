@@ -332,10 +332,11 @@ class ZMXCaretakerBot {
 
   async sendPartyPoll(ctx: Context) {
     try {
-      await ctx.sendPoll('🚨🚨🚨 Объявлен сбор!!!', [
-        'Приду ✅',
-        'Не приду ❌',
-        'Опоздаю ⏰'
+      await ctx.sendPoll('🚨🚨🚨 Объявлен сбор 🚨🚨🚨', [
+        '✅ Приду',
+        '❌ Не приду',
+        '⏰ Опоздаю',
+        '🔩 Посмотрю на ваше поведение'
       ], {
         is_anonymous: false,
         allows_multiple_answers: false,
