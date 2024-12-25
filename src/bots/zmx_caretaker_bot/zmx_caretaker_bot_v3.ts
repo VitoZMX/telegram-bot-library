@@ -237,23 +237,37 @@ class ZMXCaretakerBot {
     // Проверка наличия картинок из поста
     if (tilTokData.images) {
       try {
-        // Преобразование в медиа группу
-        const mediaGroup: InputMediaPhoto<string>[] = tilTokData.images.map((url: string) => ({
-          type: 'photo',
-          media: url,
-        }));
+        // Разбиваем массив картинок на группы по 10 штук
+        const chunkSize = 10;
+        const imageChunks = [];
 
-        // У первого элемента в массиве вставляется текст в HTML разметке
-        mediaGroup[0] = {
-          ...mediaGroup[0],
-          caption: textDescriptionTikTokPost,
-          parse_mode: 'HTML'
-        };
+        for (let i = 0; i < tilTokData.images.length; i += chunkSize) {
+          imageChunks.push(tilTokData.images.slice(i, i + chunkSize));
+        }
 
-        await ctx.replyWithMediaGroup(mediaGroup);
-        Logger.blue(`[${messageId}] Медиа группа с текстом о посте TikTok отправлены в чат`);
+        // Обрабатываем каждую группу картинок
+        for (let i = 0; i < imageChunks.length; i++) {
+          const mediaGroup: InputMediaPhoto<string>[] = imageChunks[i].map((url: string) => ({
+            type: 'photo',
+            media: url,
+          }));
+
+          // Добавляем caption только к первой группе
+          if (i === 0) {
+            mediaGroup[0] = {
+              ...mediaGroup[0],
+              caption: textDescriptionTikTokPost,
+              parse_mode: 'HTML'
+            };
+          }
+
+          await ctx.replyWithMediaGroup(mediaGroup);
+          Logger.blue(`[${messageId}] Отправлена группа ${i + 1} из ${imageChunks.length} с ${mediaGroup.length} изображениями`);
+        }
+
+        Logger.blue(`[${messageId}] Все медиа группы с TikTok успешно отправлены в чат`);
       } catch (error) {
-        Logger.red(`[${messageId}] Ошибка отправки медиа группы TikTok: ${error}`);
+        Logger.red(`[${messageId}] Ошибка отправки медиа групп TikTok: ${error}`);
         console.error(error);
       }
     }
