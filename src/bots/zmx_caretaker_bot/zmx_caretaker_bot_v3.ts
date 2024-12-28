@@ -203,6 +203,7 @@ class ZMXCaretakerBot {
         }
 
         if (audioBuffer) {
+          console.log('audioBuffer.constructor.name: ', audioBuffer.constructor.name);
           await ctx.replyWithVoice({
             source: audioBuffer
           }, {
