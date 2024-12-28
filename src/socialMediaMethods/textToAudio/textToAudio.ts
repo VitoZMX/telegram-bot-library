@@ -20,7 +20,11 @@ export async function textToAudioVoiceBuffer(
       url: `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
       headers: {
         'xi-api-key': apiKey,
-        'Content-Type': 'application/json'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'audio/mpeg',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Origin': 'https://api.elevenlabs.io',
+        'Referer': 'https://api.elevenlabs.io/'
       },
       data: {
         text,
