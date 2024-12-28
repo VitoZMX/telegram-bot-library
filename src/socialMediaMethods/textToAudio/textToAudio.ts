@@ -9,10 +9,9 @@ export async function textToAudioVoiceBuffer(
 ): Promise<Buffer> {
   try {
     const voiceId = process.env.ELEVENLABS_VOICE_ID;
-    if (!voiceId) throw new Error('ELEVENLABS_VOICE_ID не задан');
-
     const apiKey = process.env.ELEVENLABS_API_KEY_ID;
-    if (!apiKey) throw new Error('ELEVENLABS_API_KEY_ID не задан');
+
+    if (!voiceId || !apiKey) throw new Error('ELEVENLABS_VOICE_ID или ELEVENLABS_API_KEY_ID не задан');
 
     Logger.log('Обработка текста в аудио на ElevenLabs...')
     const response = await axios({
@@ -20,11 +19,7 @@ export async function textToAudioVoiceBuffer(
       url: `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
       headers: {
         'xi-api-key': apiKey,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'audio/mpeg',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Origin': 'https://api.elevenlabs.io',
-        'Referer': 'https://api.elevenlabs.io/'
+        'Content-Type': 'application/json',
       },
       data: {
         text,
