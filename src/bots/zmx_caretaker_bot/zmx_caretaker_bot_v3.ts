@@ -1,12 +1,14 @@
 import { Logger } from "../../utils/Logger";
 import { Context, Telegraf } from 'telegraf';
 import { formatNumber } from "../../utils/formatNumber";
+import { StringHelper } from "../../utils/stringHelper";
 import { InputMediaPhoto } from "@telegraf/types/methods";
 import { LinkPattern } from "./types/ZMXCaretakerBotType";
 import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
 import { getInstagramVideoUrl } from "../../socialMediaMethods/instagram/instagram";
 import { getMistralResponse } from "../../socialMediaMethods/assistants/mistral/mistral";
+import { textToAudioVoiceBuffer } from "../../socialMediaMethods/textToAudio/textToAudio";
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
 import { ScreenshotResponseType } from "../../socialMediaMethods/webPage/typos/webPageTypos";
 
@@ -187,19 +189,39 @@ class ZMXCaretakerBot {
 
       // Отправка ответа
       try {
-        await ctx.reply(responseText, {
-          // @ts-ignore
-          reply_to_message_id: ctx.message.message_id,
-        });
-        Logger.blue(`[${messageId}] Ответ успешно отправлен`);
+        const maxLengthMess: number = 333;
+        const codeInText: boolean = responseText.includes('```');
+        let audioBuffer: Buffer | undefined;
+
+        console.log(`Длинна ответа ${responseText.length}, максимум: ${maxLengthMess} и в ней ${codeInText} элемент кода`)
+
+        if (responseText.length <= maxLengthMess || !codeInText) {
+          audioBuffer = await textToAudioVoiceBuffer(responseText);
+        } else {
+          Logger.log(`Текст ответа не будет преобразован в аудио`);
+        }
+
+        if (audioBuffer) {
+          await ctx.replyWithVoice({
+            source: audioBuffer
+          }, {
+            caption: StringHelper.escapeMarkdown(responseText),
+            parse_mode: 'MarkdownV2'
+          });
+          Logger.blue(`[${messageId}] Ответ с аудио успешно отправлен`);
+        } else {
+          await ctx.replyWithMarkdownV2(StringHelper.escapeMarkdown(responseText));
+          Logger.blue(`[${messageId}] Ответ текстом успешно отправлен`);
+        }
       } catch (replyError) {
-        // Резервный вариант отправки без привязки к сообщению
+        Logger.red(`[${messageId}] Не удалось отправить сообщение, попытка резервного отправления`);
+
+        // Резервный вариант отправки
         await ctx.reply(responseText, {
           disable_notification: true
         });
-        Logger.log(`[${messageId}] Не удалось ответить на исходное сообщение, отправлено новым сообщением`);
+        Logger.blue(`[${messageId}] Резервное сообщение отправлено в чат`)
       }
-
     } catch (error) {
       Logger.red(`[${messageId}] Не удалось получить ответ от AI`);
       await ctx.reply('Извините, сейчас я не могу ответить. Попробуйте позже!', {
