@@ -37,6 +37,10 @@ export class ElevenLabsService {
         model_id: "eleven_flash_v2_5",
       });
 
+      console.log('audioBuffer:', audioBuffer);
+      console.log('Received audio buffer type:', typeof audioBuffer);
+      console.log('Audio buffer properties:', Object.keys(audioBuffer));
+
       Logger.log('Успешно...');
       return audioBuffer;
     } catch (error) {
