@@ -19,7 +19,6 @@ export async function textToAudioVoiceBuffer(
       method: 'post',
       url: `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
       headers: {
-        'Accept': '.mp3',
         'xi-api-key': apiKey,
         'Content-Type': 'application/json'
       },
