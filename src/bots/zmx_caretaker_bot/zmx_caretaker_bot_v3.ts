@@ -1,3 +1,4 @@
+import * as stream from "stream";
 import { Logger } from "../../utils/Logger";
 import { Context, Telegraf } from 'telegraf';
 import { formatNumber } from "../../utils/formatNumber";
@@ -8,9 +9,9 @@ import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
 import { getInstagramVideoUrl } from "../../socialMediaMethods/instagram/instagram";
 import { getMistralResponse } from "../../socialMediaMethods/assistants/mistral/mistral";
-import { textToAudioVoiceBuffer } from "../../socialMediaMethods/textToAudio/textToAudio";
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
 import { ScreenshotResponseType } from "../../socialMediaMethods/webPage/typos/webPageTypos";
+import { ElevenLabsService } from "../../socialMediaMethods/textToAudio/elevenLabsService";
 
 require('dotenv').config({ path: '.env.tokens' });
 
@@ -191,12 +192,12 @@ class ZMXCaretakerBot {
       try {
         const maxLengthMess: number = 333;
         const codeInText: boolean = responseText.includes('```');
-        let audioBuffer: Buffer | undefined;
+        let audioBuffer: stream.Readable | undefined;
 
         console.log(`Длинна ответа ${responseText.length}, максимум: ${maxLengthMess} и в ней ${codeInText} элемент кода`)
 
         if (responseText.length <= maxLengthMess || !codeInText) {
-          audioBuffer = await textToAudioVoiceBuffer(responseText);
+          audioBuffer = await new ElevenLabsService().textToAudioVoiceBuffer(responseText)
         } else {
           Logger.log(`Текст ответа не будет преобразован в аудио`);
         }
