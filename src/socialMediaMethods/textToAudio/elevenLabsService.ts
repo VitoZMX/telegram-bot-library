@@ -1,6 +1,6 @@
 import { ElevenLabsClient } from "elevenlabs";
 import { Logger } from "../../utils/Logger";
-import * as stream from "stream";
+import { Readable } from "stream";
 
 require('dotenv').config({ path: '.env.tokens' });
 
@@ -25,21 +25,17 @@ export class ElevenLabsService {
    * @param text Текст, который нужно преобразовать в аудио
    * @returns Буфер с аудиоданными
    */
-  public async textToAudioVoiceBuffer(text: string): Promise<stream.Readable> {
+  public async textToAudioVoiceBuffer(text: string): Promise<Readable> {
     try {
       Logger.log('Обработка текста в аудио на ElevenLabs...');
 
-      const audioBuffer = await this.client.generate({
-        stream: true,
-        output_format: "mp3_44100_128",
-        voice: process.env.ELEVENLABS_VOICE_ID || '',
-        text: text,
-        model_id: "eleven_flash_v2_5",
-      });
-
-      console.log('audioBuffer:', audioBuffer);
-      console.log('Received audio buffer type:', typeof audioBuffer);
-      console.log('Audio buffer properties:', Object.keys(audioBuffer));
+      const audioBuffer = await this.client.textToSpeech.convertAsStream(
+        process.env.ELEVENLABS_VOICE_ID || '',
+        {
+          text,
+          model_id: "eleven_flash_v2_5",
+        }
+      );
 
       Logger.log('Успешно...');
       return audioBuffer;
