@@ -5,6 +5,7 @@ import axios from "axios";
 import { Logger } from "../../utils/Logger";
 import { Markup, Telegraf } from 'telegraf';
 import { MessageEntity } from 'telegraf/types';
+import { PM2Manager } from "../../utils/PM2Manager";
 import { DateHelper } from "../../utils/dateHelper";
 import { formatNumber } from "../../utils/formatNumber";
 import { MediaItem, MyContext } from "./types/ZMXQuillBotType";
@@ -18,6 +19,7 @@ class BotQuill {
   private readonly channelZMXGamesId: string;
   private readonly channelZMXGamesName: string;
   private readonly token_ZMX_QUILL_BOT: string;
+  private pm2Manager: PM2Manager;
   private isProcessing: boolean = false;
   private mediaGroups: { [key: string]: any[] } = {}; // Хранилище для медиа групп
   private newsCheckInterval: NodeJS.Timeout | null = null;
@@ -27,6 +29,7 @@ class BotQuill {
   constructor() {
     this.token_ZMX_QUILL_BOT = process.env.ZMX_QUILL_BOT!
     this.bot = new Telegraf<MyContext>(this.token_ZMX_QUILL_BOT);
+    this.pm2Manager = new PM2Manager();
     this.adminId = Number(process.env.ADMIN_ID);
     this.channelZMXGamesId = process.env.CHANNEL_ZMXGAMES_ID!;
     this.channelZMXGamesName = process.env.CHANNEL_ZMXGAMES_NAME!;
@@ -45,6 +48,7 @@ class BotQuill {
     this.bot.action(/^delete_(.+)$/, (ctx) => this.handleDelete(ctx));
 
     this.bot.command('online', (ctx) => this.sendOnlineInGames(ctx));
+    this.bot.command('stat', (ctx) => this.handleStat(ctx));
     this.bot.on('message', (ctx) => this.handleMessage(ctx));
   }
 
@@ -491,6 +495,51 @@ class BotQuill {
       console.log('Ошибка при получении лидеров продаж:', error);
     }
   };
+
+  private async handleStat(ctx: MyContext): Promise<void> {
+    if (ctx.from?.id !== this.adminId) {
+      await ctx.reply('У вас нет прав для выполнения этой команды');
+      return;
+    }
+
+    try {
+      Logger.log('Обработка команды /stat');
+
+      // Отправляем сообщение о начале получения статистики
+      const statusMessage = await ctx.reply('Получение статистики PM2...');
+
+      // Получаем список процессов
+      const processList = await this.pm2Manager.getProcessList();
+      const formattedProcessList = this.pm2Manager.formatOutput(processList);
+
+      // Отправляем список процессов
+      await ctx.reply(`<b>📊 Список процессов PM2:</b>\n<pre>${formattedProcessList}</pre>`, {
+        parse_mode: 'HTML'
+      });
+
+      // Получаем логи
+      const logs = await this.pm2Manager.getLogs();
+      const formattedLogs = this.pm2Manager.formatOutput(logs);
+
+      // Отправляем логи
+      await ctx.reply(`<b>📝 Последние логи PM2:</b>\n<pre>${formattedLogs}</pre>`, {
+        parse_mode: 'HTML'
+      });
+
+      // Обновляем статусное сообщение
+      await ctx.telegram.editMessageText(
+        ctx.chat!.id,
+        statusMessage.message_id,
+        undefined,
+        '✅ Статистика PM2 успешно получена'
+      );
+
+      Logger.green('Команда /stat успешно выполнена');
+    } catch (error) {
+      Logger.red(`Ошибка при выполнении команды /stat: ${error}`);
+      await ctx.reply('❌ Произошла ошибка при получении статистики PM2');
+    }
+  }
 
   private async handleDelete(ctx: MyContext): Promise<void> {
     if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
