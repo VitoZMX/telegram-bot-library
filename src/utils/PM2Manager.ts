@@ -112,7 +112,7 @@ export class PM2Manager {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       // Обработка буферов - заменяем на более читаемый формат
-      // .replace(/<Buffer[^>]+>/g, '[Binary Buffer]')
+      .replace(/<Buffer[^>]+>/g, '[Binary Buffer]')
       // Заменяем множественные пустые строки на одну
       .replace(/\n\s*\n\s*\n/g, '\n\n')
       // Убираем ANSI escape последовательности
