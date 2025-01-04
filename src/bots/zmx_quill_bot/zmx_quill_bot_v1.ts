@@ -75,8 +75,8 @@ class BotQuill {
     this.isProcessing = false;
   }
 
-  async addWatermarkToPhotos(mediaGroup: MediaItem[],  chatId: number, watermarkPath?: string, watermarkPathToTelegram?: boolean): Promise<MediaItem[]> {
-    if(!watermarkPath){
+  async addWatermarkToPhotos(mediaGroup: MediaItem[], chatId: number, watermarkPath?: string, watermarkPathToTelegram?: boolean): Promise<MediaItem[]> {
+    if (!watermarkPath) {
       watermarkPath = 'file://' + path.resolve(__dirname, '../../img/zmx.png').replace(/\\/g, '/');
     }
 
@@ -505,28 +505,43 @@ class BotQuill {
     try {
       Logger.log('Обработка команды /stat');
 
-      // Отправляем сообщение о начале получения статистики
       const statusMessage = await ctx.reply('Получение статистики PM2...');
 
-      // Получаем список процессов
+      // Получаем и отправляем таблицу процессов
       const processList = await this.pm2Manager.getProcessList();
       const formattedProcessList = this.pm2Manager.formatOutput(processList);
-
-      // Отправляем список процессов
-      await ctx.reply(`<b>📊 Список процессов PM2:</b>\n<pre>${formattedProcessList}</pre>`, {
+      await ctx.reply(`<b>📊 Таблица процессов PM2:</b>\n<pre>${formattedProcessList}</pre>`, {
         parse_mode: 'HTML'
       });
 
-      // Получаем логи
-      const logs = await this.pm2Manager.getLogs();
-      const formattedLogs = this.pm2Manager.formatOutput(logs);
-
-      // Отправляем логи
-      await ctx.reply(`<b>📝 Последние логи PM2:</b>\n<pre>${formattedLogs}</pre>`, {
+      // Получаем и отправляем подробную информацию о процессах
+      const processes = await this.pm2Manager.getProcessesInfo();
+      const formattedInfo = this.pm2Manager.formatProcessesInfo(processes);
+      await ctx.reply(formattedInfo, {
         parse_mode: 'HTML'
       });
 
-      // Обновляем статусное сообщение
+      // Отправляем сообщение о начале получения логов
+      await ctx.reply('📝 Получение логов для каждого процесса...');
+
+      // Получаем и отправляем логи для каждого процесса
+      for (const process of processes) {
+        try {
+          const logs = await this.pm2Manager.getProcessLogs(process.id);
+          const formattedLogs = this.pm2Manager.formatOutput(logs, 3800);
+
+          await ctx.reply(
+            `<b>📝 Логи процесса "${process.name}" (ID: ${process.id}, Статус: ${process.status}):</b>\n` +
+            `<pre>${formattedLogs}</pre>`,
+            { parse_mode: 'HTML' }
+          );
+        } catch (error) {
+          await ctx.reply(
+            `❌ Ошибка при получении логов процесса "${process.name}" (ID: ${process.id})`
+          );
+        }
+      }
+
       await ctx.telegram.editMessageText(
         ctx.chat!.id,
         statusMessage.message_id,
