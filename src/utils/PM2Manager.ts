@@ -30,7 +30,7 @@ export class PM2Manager {
     Logger.log('Получение списка процессов PM2');
     try {
       const { stdout } = await execPromise('pm2 list');
-      Logger.blue('Список процессов PM2 успешно получен');
+      Logger.log('Список процессов PM2 успешно получен');
       return stdout;
     } catch (error) {
       Logger.red('Ошибка при получении списка процессов PM2');
@@ -102,6 +102,35 @@ export class PM2Manager {
   }
 
   /**
+   * Форматирует логи, экранируя специальные символы и обрабатывая буферы
+   */
+  formatLogs(logs: string): string {
+    Logger.log('Форматирование логов');
+
+    return logs
+      // Заменяем HTML-теги на их экранированные версии
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      // Обработка буферов - заменяем на более читаемый формат
+      // .replace(/<Buffer[^>]+>/g, '[Binary Buffer]')
+      // Заменяем множественные пустые строки на одну
+      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      // Убираем ANSI escape последовательности
+      .replace(/\u001b\[\d+m/g, '')
+      // Обработка символов [Symbol(...)]
+      .replace(/\[Symbol\([^\)]+\)\]/g, match => `[${match}]`)
+      // Удаляем повторяющиеся префиксы PM2 (например, "0|TG_caret |")
+      .split('\n')
+      .map(line => line.replace(/^\d+\|[^|]+\|/, '').trim())
+      .join('\n')
+      // Убираем технические сообщения PM2
+      // .replace(/\[TAILING\].*option\)/g, '')
+      // .replace(/\/root\/\.pm2\/logs\/.*last \d+ lines:/g, '')
+      // Удаляем пустые строки в начале и конце
+      .trim();
+  }
+
+  /**
    * Форматирует память в читаемый вид
    */
   private formatMemory(bytes: number): string {
@@ -135,8 +164,8 @@ export class PM2Manager {
     Logger.log(`Получение логов процесса PM2 с ID ${processId}`);
     try {
       const { stdout } = await execPromise(`pm2 logs ${processId} --lines 10 --nostream`);
-      Logger.blue(`Логи процесса ${processId} успешно получены`);
-      return stdout;
+      Logger.log(`Логи процесса ${processId} успешно получены`);
+      return this.formatLogs(stdout);
     } catch (error) {
       Logger.red(`Ошибка при получении логов процесса ${processId}`);
       console.error(error);
@@ -148,9 +177,10 @@ export class PM2Manager {
    * Форматирует вывод PM2 для отправки в Telegram
    */
   formatOutput(output: string, maxLength: number = 4000): string {
-    const cleanOutput = output.replace(/\u001b\[\d+m/g, '');
-    return cleanOutput.length > maxLength
-      ? cleanOutput.substring(0, maxLength) + '...\n[Сообщение обрезано из-за длины]'
-      : cleanOutput;
+    const formattedOutput = this.formatLogs(output);
+
+    return formattedOutput.length > maxLength
+      ? formattedOutput.substring(0, maxLength) + '...\n[Сообщение обрезано из-за длины]'
+      : formattedOutput;
   }
 }

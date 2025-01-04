@@ -528,13 +528,22 @@ class BotQuill {
       for (const process of processes) {
         try {
           const logs = await this.pm2Manager.getProcessLogs(process.id);
-          const formattedLogs = this.pm2Manager.formatOutput(logs, 3800);
 
-          await ctx.reply(
-            `<b>📝 Логи процесса "${process.name}" (ID: ${process.id}, Статус: ${process.status}):</b>\n` +
-            `<pre>${formattedLogs}</pre>`,
-            { parse_mode: 'HTML' }
-          );
+          if (!logs.trim()) {
+            continue;
+          }
+
+          const formattedLogs = this.pm2Manager.formatOutput(logs, 3800);
+          if (formattedLogs.trim()) {
+            await ctx.reply(
+              `<b>📝 Логи процесса "${process.name}" (ID: ${process.id}, Статус: ${process.status}):</b>\n` +
+              `<code>${formattedLogs}</code>`,
+              {
+                parse_mode: 'HTML',
+                disable_notification: true
+              }
+            );
+          }
         } catch (error) {
           await ctx.reply(
             `❌ Ошибка при получении логов процесса "${process.name}" (ID: ${process.id})`
