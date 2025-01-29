@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Readable } from "stream";
 import { TikTokResponseType } from "./types/tikTokType";
 
 /** Метод для получения данных со ссылки на TikTok
@@ -40,4 +41,22 @@ export async function getTikTokInfo(videoUrl: string): Promise<TikTokResponseTyp
   }
 
   throw lastError || new Error('Unknown error occurred');
+}
+
+/**   Метод для получения потока со ссылки на TikTok видео файл
+ @param videoUrl - принимает ссылку на видео файл.
+ @return Readable - поток */
+export async function getTikTokVideoStream(videoUrl: string): Promise<Readable> {
+  try {
+    const response = await axios({
+      url: videoUrl,
+      method: 'GET',
+      responseType: 'stream',
+    });
+
+    return response.data
+  } catch (error) {
+    console.error('Ошибка получения потока видео из TikTok:', error instanceof Error ? error.message : String(error));
+    throw new Error('Не получения получения видео TikTok по URL-адресу.');
+  }
 }
