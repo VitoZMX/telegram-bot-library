@@ -113,7 +113,7 @@ class BotQuill {
       if (item.type === 'photo') {
         try {
           // Скачать изображение по file_id
-          const fileUrl = await this.getTelegramFileUrl(item.media); // Метод для получения URL файла Telegram
+          const fileUrl = await this.getTelegramFileUrl(item.media);
           const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
 
           // Определить размер исходного изображения
@@ -122,7 +122,7 @@ class BotQuill {
 
           if (!metadata.width || !metadata.height) {
             Logger.red('Не удалось получить размеры исходного изображения');
-            return updatedMediaGroup
+            return updatedMediaGroup;
           }
 
           // Рассчитать масштабирование водяного знака (10% от ширины исходного изображения)
@@ -144,13 +144,13 @@ class BotQuill {
             ])
             .toBuffer();
 
-          // Загрузить обработанное изображение обратно в Telegram
-          const uploadedFile = await this.uploadToTelegram(watermarkedImageBuffer, chatId); // Метод загрузки файла в Telegram
-
-          // Обновить объект media с новым file_id
+          // Добавляем обработанное изображение напрямую в медиа-группу
           updatedMediaGroup.push({
             ...item,
-            media: uploadedFile.file_id // Новый file_id
+            // @ts-ignore
+            media: {
+              source: watermarkedImageBuffer
+            }
           });
         } catch (error) {
           console.error('Ошибка при обработке изображения:', error);
@@ -170,16 +170,6 @@ class BotQuill {
     // Получения URL файла Telegram по file_id, с использованием Telegram Bot API
     const file = await this.bot.telegram.getFile(fileId);
     return `https://api.telegram.org/file/bot${this.token_ZMX_QUILL_BOT}/${file.file_path}`;
-  }
-
-  async uploadToTelegram(buffer: Buffer, chatId: number): Promise<{ file_id: string }> {
-    const response = await this.bot.telegram.sendPhoto(chatId, { source: buffer });
-    Logger.blue(`Файл отправлен в телеграмм`)
-
-    await this.bot.telegram.deleteMessage(chatId, response.message_id);
-    Logger.blue(`Сообщение с файлом удалено из чата`)
-
-    return response.photo[response.photo.length - 1]; // Вернуть самый крупный вариант фото
   }
 
   async createMediaGroup(messages: any[]): Promise<MediaItem[]> {
