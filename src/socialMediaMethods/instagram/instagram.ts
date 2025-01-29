@@ -1,16 +1,19 @@
-import { Instagram } from 'vdl-core';
-import { InstagramResponseType } from "./typos/instagramType";
+import axios from "axios";
+import { Readable } from "stream";
 
-/** Метод для получения ссылки на видео файл instagram reels
+/** Метод для получения потока instagram reels
  @param reelsUrl - ссылку на видео в соц. сети */
-export async function getInstagramVideoUrl(reelsUrl: string): Promise<string> {
+export async function getInstagramVideo(reelsUrl: string): Promise<Readable> {
+  const { igdl } = require('ruhend-scraper')
   try {
-    const ins: Instagram = new Instagram(reelsUrl);
-    const videos: InstagramResponseType[] = await ins.extractVideos();
+    let res = await igdl(reelsUrl);
 
-    if (Array.isArray(videos) && videos.length > 0 && videos[0]?.url && videos[0]?.url.includes('.mp4')) {
-      return videos[0].url;
-    }
+    const response = await axios({
+      method: 'GET',
+      url: res.data[0].url,
+      responseType: 'stream'
+    });
+    return response.data;
 
     throw new Error('В публикации Instagram не найден URL-адрес видео');
 
@@ -21,11 +24,4 @@ export async function getInstagramVideoUrl(reelsUrl: string): Promise<string> {
 }
 
 // Вызов для отладки:
-// const videoUrl: Promise<string | null> = getInstagramVideoUrl('https://www.instagram.com/reel/***********/?utm_source=ig_web_copy_link');
-// videoUrl.then((url: string | null) => {
-//   if (url) {
-//     console.log('Video URL:', url);
-//   }
-// }).catch((error: Error) => {
-//   console.error('Error:', error.message);
-// });
+// getInstagramVideoUrl('https://www.instagram.com/reel/*************/?igsh=MTh1YTg2cHVsa21uOA==').then(res=> console.log(res))
