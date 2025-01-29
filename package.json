@@ -1,6 +1,6 @@
 {
   "name": "telegram-bot",
-  "version": "24.12",
+  "version": "25.01",
   "scripts": {
     "build": "tsc && ts-node src/scripts/copyFiles.ts",
     "build:ecosystem": "tsc ecosystem.config.ts --outDir build",
