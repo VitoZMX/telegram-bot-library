@@ -4,13 +4,13 @@ import { formatNumber } from "../../utils/formatNumber";
 import { StringHelper } from "../../utils/stringHelper";
 import { InputMediaPhoto } from "@telegraf/types/methods";
 import { LinkPattern } from "./types/ZMXCaretakerBotType";
-import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
 import { getInstagramVideo } from "../../socialMediaMethods/instagram/instagram";
 import { getMistralResponse } from "../../socialMediaMethods/assistants/mistral/mistral";
 import { textToAudioVoiceBuffer } from "../../socialMediaMethods/textToAudio/textToAudio";
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
 import { ScreenshotResponseType } from "../../socialMediaMethods/webPage/typos/webPageTypos";
+import { getTikTokInfo, getTikTokVideoStream } from "../../socialMediaMethods/TikTok/tikTok";
 
 require('dotenv').config({ path: '.env.tokens' });
 
@@ -301,10 +301,21 @@ class ZMXCaretakerBot {
       });
       Logger.blue(`[${messageId}] Аудио отправлено в чат`);
     } else {
-      await ctx.sendVideo(tilTokUrl, {
-        disable_notification: true,
-        caption: textDescriptionTikTokPost
-      });
+      try {
+        await ctx.sendVideo(tilTokUrl, {
+          disable_notification: true,
+          caption: textDescriptionTikTokPost
+        });
+      } catch {
+        /* Обработка когда видео могло не отправиться из-за большого объема потока */
+        Logger.log(`[${messageId}] Попытка отправить видео через поток`);
+        const tikTokVideoStream = await getTikTokVideoStream(tilTokUrl)
+        await ctx.sendVideo({
+          source: tikTokVideoStream
+        });
+
+        await ctx.sendMessage(textDescriptionTikTokPost, {disable_notification: true})
+      }
 
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
     }
