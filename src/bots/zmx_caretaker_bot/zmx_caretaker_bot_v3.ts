@@ -6,7 +6,7 @@ import { InputMediaPhoto } from "@telegraf/types/methods";
 import { LinkPattern } from "./types/ZMXCaretakerBotType";
 import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
-import { getInstagramVideoUrl } from "../../socialMediaMethods/instagram/instagram";
+import { getInstagramVideo } from "../../socialMediaMethods/instagram/instagram";
 import { getMistralResponse } from "../../socialMediaMethods/assistants/mistral/mistral";
 import { textToAudioVoiceBuffer } from "../../socialMediaMethods/textToAudio/textToAudio";
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
@@ -319,8 +319,10 @@ class ZMXCaretakerBot {
   ): Promise<void> {
 
     try {
-      const instagramReelsUrl = await getInstagramVideoUrl(url);
-      console.log(`[${messageId}] URL Instagram Reels получен:`, instagramReelsUrl);
+      const instagramReelsStream = await getInstagramVideo(url);
+      if (typeof instagramReelsStream.pipe === 'function') {
+        console.log(`[${messageId}] Поток Instagram Reels получен`);
+      }
 
       try {
         await ctx.deleteMessage();
@@ -331,9 +333,9 @@ class ZMXCaretakerBot {
         Logger.red(`[${messageId}] Не удалось удалить сообщение: недостаточно прав.`);
         // Продолжаем выполнение без удаления сообщения
       }
-
-      await ctx.sendVideo(instagramReelsUrl, {
-        disable_notification: true
+      await ctx.sendVideo({
+        source: instagramReelsStream,
+        filename: 'instagramReels.mp4'
       });
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
 
