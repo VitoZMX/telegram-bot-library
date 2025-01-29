@@ -1,3 +1,4 @@
+import { Readable } from "stream";
 import { Logger } from "../../utils/Logger";
 import { Context, Telegraf } from 'telegraf';
 import { formatNumber } from "../../utils/formatNumber";
@@ -310,11 +311,16 @@ class ZMXCaretakerBot {
         /* Обработка когда видео могло не отправиться из-за большого объема потока */
         Logger.log(`[${messageId}] Попытка отправить видео через поток`);
         const tikTokVideoStream = await getTikTokVideoStream(tilTokUrl)
-        await ctx.sendVideo({
-          source: tikTokVideoStream
-        });
+        const videoInputFile = { source: tikTokVideoStream as Readable };
 
-        await ctx.sendMessage(textDescriptionTikTokPost, {disable_notification: true})
+        await ctx.sendMediaGroup( [
+          {
+            type: 'video',
+            media: videoInputFile,
+            supports_streaming: true,
+            caption: textDescriptionTikTokPost,
+            parse_mode: 'HTML'
+          }])
       }
 
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
