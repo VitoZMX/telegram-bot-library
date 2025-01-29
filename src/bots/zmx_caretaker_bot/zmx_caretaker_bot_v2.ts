@@ -4,7 +4,7 @@ import { formatNumber } from "../../utils/formatNumber";
 import { LinkPattern } from "./types/ZMXCaretakerBotType";
 import { getTikTokInfo } from "../../socialMediaMethods/TikTok/tikTok";
 import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
-import { getInstagramVideoUrl } from "../../socialMediaMethods/instagram/instagram";
+import { getInstagramVideo } from "../../socialMediaMethods/instagram/instagram";
 import { ScreenshotResponseType } from "../../socialMediaMethods/webPage/typos/webPageTypos";
 
 require('dotenv').config({ path: '.env.tokens' });
@@ -194,8 +194,10 @@ class ZMXCaretakerBot {
   ): Promise<void> {
 
     try {
-      const instagramReelsUrl = await getInstagramVideoUrl(url);
-      console.log(`[${messageId}] URL Instagram Reels получен:`, instagramReelsUrl);
+      const instagramReelsStreamV2 = await getInstagramVideo(url);
+      if (typeof instagramReelsStreamV2.pipe === 'function') {
+        console.log(`[${messageId}] Поток Instagram Reels получен`);
+      }
 
       try {
         await ctx.deleteMessage();
@@ -207,8 +209,9 @@ class ZMXCaretakerBot {
         // Продолжаем выполнение без удаления сообщения
       }
 
-      await ctx.sendVideo(instagramReelsUrl, {
-        disable_notification: true
+      await ctx.sendVideo({
+        source: instagramReelsStreamV2,
+        filename: 'instagramReels.mp4'
       });
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
 
