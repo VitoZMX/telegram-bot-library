@@ -273,12 +273,23 @@ class BotQuill {
               const messages = await ctx.replyWithMediaGroup(mediaGroupWithWaterMark);
               Logger.blue(`Медиа группа отправлена в чат`)
               const messageIds = messages.map((message) => message.message_id);
-
               Logger.green(`Медиа группа ${groupId} обработана и удалена.`);
             }
 
-            // Удаляем медиа группу из хранилища после обработки
+            // Очистка ресурсов
+            mediaGroup.forEach(item => {
+              if (item.media && typeof item.media === 'object' && 'source' in item.media) {
+                // @ts-ignore
+                if (Buffer.isBuffer(item.media.source)) {
+                  // @ts-ignore
+                  item.media.source = null;
+                }
+              }
+            });
+
+            // Очистка хранилища
             delete this.mediaGroups[groupId];
+            delete this.processingGroups[groupId];
           }
         } catch (error) {
           console.error(`Ошибка при обработке медиа группы ${groupId}:`, error);
@@ -309,16 +320,32 @@ class BotQuill {
         });
       }
 
-      const mediaWithWatermark = await this.addWatermarkToPhotos(
-        mediaItem,
-        // @ts-ignore
-        ctx.chat?.id
-      );
+      try {
+        const mediaWithWatermark = await this.addWatermarkToPhotos(
+          mediaItem,
+          // @ts-ignore
+          ctx.chat?.id
+        );
 
-      if (mediaWithWatermark.length > 0) {
-        // @ts-ignore
-        await ctx.replyWithMediaGroup(mediaWithWatermark);
-        Logger.blue(`сообщение без медиа группа отправлен в чат`)
+        if (mediaWithWatermark.length > 0) {
+          // @ts-ignore
+          await ctx.replyWithMediaGroup(mediaWithWatermark);
+          Logger.blue(`Сообщение без медиа группа отправлен в чат`);
+        }
+
+        // Очистка буферов
+        mediaWithWatermark.forEach(item => {
+          if (item.media && typeof item.media === 'object' && 'source' in item.media) {
+            // @ts-ignore
+            if (Buffer.isBuffer(item.media.source)) {
+              // @ts-ignore
+              item.media.source = null;
+            }
+          }
+        });
+      } finally {
+        // Очистка исходного mediaItem
+        mediaItem.length = 0;
       }
     }
   }
@@ -589,10 +616,21 @@ class BotQuill {
     }
   }
 
+
   public async stop(reason: string): Promise<void> {
     if (this.newsCheckInterval) {
       clearInterval(this.newsCheckInterval);
     }
+
+    // Очистка всех хранилищ при остановке бота
+    Object.keys(this.mediaGroups).forEach(key => {
+      delete this.mediaGroups[key];
+    });
+    Object.keys(this.processingGroups).forEach(key => {
+      delete this.processingGroups[key];
+    });
+    this.messageQueue = [];
+
     Logger.red(`Остановка бота по причине: ${reason}`);
     this.bot.stop(reason);
   }
