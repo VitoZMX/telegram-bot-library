@@ -24,7 +24,7 @@ enum LinkType {
 
 class ZMXCaretakerBot {
   private readonly tiktokUrlRegex = /(https?:\/\/)?(vm\.|www\.|m\.)?tiktok\.com\/[@A-Za-z0-9_\-.\/]+/i;
-  private readonly instagramReelsRegex = /(https?:\/\/)?(www\.|m\.)?instagram\.com\/(reels?|reel)\/([\w\-.]+)(\/?\?[^\/]*)?/i;
+  private readonly instagramReelsRegex = /(https?:\/\/)?(www\.|m\.)?instagram\.com\/.*/i;
   private readonly webPageUrlRegex = /https?:\/\/(www\.)?[a-zA-Z0-9-._~:/?#\[\]@!$&'()*+,;=]{2,}/gi;
   private readonly botMentionRegex = /^@zmx_caretaker_bot\s+.+/i;
   private messageQueue: { ctx: Context; messageId: string }[] = [];
@@ -310,22 +310,28 @@ class ZMXCaretakerBot {
       } catch {
         /* Обработка когда видео могло не отправиться из-за большого объема потока */
         Logger.log(`[${messageId}] Попытка отправить видео через поток`);
-        const tikTokVideoStream = await getTikTokVideoStream(tilTokUrl)
+        let tikTokVideoStream: Readable | null = await getTikTokVideoStream(tilTokUrl)
         const videoInputFile = { source: tikTokVideoStream as Readable };
 
-        await ctx.sendMediaGroup( [
-          {
-            type: 'video',
-            media: videoInputFile,
-            supports_streaming: true,
-            caption: textDescriptionTikTokPost,
-            parse_mode: 'HTML'
-          }])
+        try {
+          await ctx.sendMediaGroup([
+            {
+              type: 'video',
+              media: videoInputFile,
+              supports_streaming: true,
+              caption: textDescriptionTikTokPost,
+              parse_mode: 'HTML'
+            }])
+          Logger.blue(`[${messageId}] Видео отправлено в чат`);
+        } finally {
+          // Очищаем поток после использования
+          if (tikTokVideoStream && tikTokVideoStream.destroy) {
+            tikTokVideoStream.destroy();
+            tikTokVideoStream = null;
+          }
+        }
       }
-
-      Logger.blue(`[${messageId}] Видео отправлено в чат`);
     }
-
     Logger.green(`[${messageId}] Обработка ссылки TikTok завершено УСПЕШНО!`);
   }
 
@@ -334,10 +340,11 @@ class ZMXCaretakerBot {
     url: string,
     messageId: string,
   ): Promise<void> {
+    let instagramReelsStream: Readable | null = null;
 
     try {
-      const instagramReelsStream = await getInstagramVideo(url);
-      if (typeof instagramReelsStream.pipe === 'function') {
+      instagramReelsStream = await getInstagramVideo(url);
+      if (typeof instagramReelsStream?.pipe === 'function') {
         console.log(`[${messageId}] Поток Instagram Reels получен`);
       }
 
@@ -350,6 +357,7 @@ class ZMXCaretakerBot {
         Logger.red(`[${messageId}] Не удалось удалить сообщение: недостаточно прав.`);
         // Продолжаем выполнение без удаления сообщения
       }
+
       await ctx.sendVideo({
         source: instagramReelsStream,
         filename: 'instagramReels.mp4'
@@ -364,6 +372,11 @@ class ZMXCaretakerBot {
         reply_to_message_id: ctx.message.message_id,
       });
       Logger.blue(`[${messageId}] Уведомление о неудаче получения видео отправлено в чат`);
+    } finally {
+      if (instagramReelsStream && typeof instagramReelsStream.destroy === 'function') {
+        instagramReelsStream.destroy();
+        instagramReelsStream = null;
+      }
     }
 
     Logger.green(`[${messageId}] Обработка ссылки Instagram Reels завершено УСПЕШНО!`);
