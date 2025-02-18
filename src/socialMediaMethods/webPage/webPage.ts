@@ -6,6 +6,22 @@ import { ScreenshotResponseType, ViewportSizeType } from "./typos/webPageTypos";
  @param url - принимает URL любого сайта
  @return Promise<ScreenshotResponse> - Promise с данными скриншота */
 export async function getPageScreenshot(url: string): Promise<ScreenshotResponseType> {
+
+  const blockedWords: string[] = [
+    'instagram',
+    'youtube',
+    'twitch'
+  ];
+
+  const hasBlockedWord: boolean = blockedWords.some(word =>
+    url.toLowerCase().includes(word.toLowerCase())
+  );
+
+  if (hasBlockedWord) {
+    Logger.red(`URL содержит запрещенное слово: ${url}`);
+    throw new Error('URL содержит запрещенное слово, скриншот страницы создан не будет!');
+  }
+
   let browser: Browser | null = null;
   let page: Page | null = null;
 
