@@ -1,6 +1,7 @@
 import { Readable } from "stream";
 import { Logger } from "../../utils/Logger";
 import { Context, Telegraf } from 'telegraf';
+import { sleep } from "../../scripts/helpers";
 import { formatNumber } from "../../utils/formatNumber";
 import { StringHelper } from "../../utils/stringHelper";
 import { InputMediaPhoto } from "@telegraf/types/methods";
@@ -284,8 +285,27 @@ class ZMXCaretakerBot {
             };
           }
 
-          await ctx.replyWithMediaGroup(mediaGroup);
-          Logger.blue(`[${messageId}] Отправлена группа ${i + 1} из ${imageChunks.length} с ${mediaGroup.length} изображениями`);
+          try {
+            await ctx.replyWithMediaGroup(mediaGroup);
+            Logger.blue(`[${messageId}] Отправлена группа ${i + 1} из ${imageChunks.length} с ${mediaGroup.length} изображениями`);
+          } catch (error: any) {
+
+            if (error?.response?.parameters?.retry_after) {
+              const retryAfter = error.response.parameters.retry_after;
+              Logger.red(`[${messageId}] Ошибка. Ждём ${retryAfter} секунд перед повторной попыткой...`);
+              await sleep(retryAfter * 1000);
+
+              await ctx.replyWithMediaGroup(mediaGroup);
+              Logger.blue(`[${messageId}] Отправлена группа ${i + 1} из ${imageChunks.length} с ${mediaGroup.length} изображениями`);
+
+            } else {
+              Logger.red(`[${messageId}] Ошибка отправки медиа групп TikTok: ${error}`);
+              throw error;
+            }
+          }
+
+          // Задержка между группами
+          await sleep(7000);
         }
 
         Logger.blue(`[${messageId}] Все медиа группы с TikTok успешно отправлены в чат`);
