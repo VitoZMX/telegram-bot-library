@@ -245,7 +245,7 @@ class ZMXCaretakerBot {
     const tilTokCommentCount = tilTokData.comment_count;
     const textDescriptionTikTokPost = `🎥 Автор: «${tilTokAuthor}»\n👀 Просмотров: ${formatNumber(tilTokPlayCount)}\n❤️ Лайков: ${formatNumber(tilTokLikeCount)}\n💬 Комментариев: ${formatNumber(tilTokCommentCount)}`
     console.log(`[${messageId}] URL TikTok получен:`, tilTokUrl);
-    console.log(`[${messageId}] TikTok информация: ${textDescriptionTikTokPost}`);
+    console.log(`[${messageId}] TikTok информация: \n${textDescriptionTikTokPost}`);
 
     try {
       await ctx.deleteMessage();
