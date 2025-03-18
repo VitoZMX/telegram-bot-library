@@ -244,7 +244,7 @@ class ZMXCaretakerBot {
     const tilTokPlayCount = tilTokData.play_count;
     const tilTokLikeCount = tilTokData.digg_count;
     const tilTokCommentCount = tilTokData.comment_count;
-    const textDescriptionTikTokPost = `🎥 Автор: «${tilTokAuthor}»\n👀 Просмотров: ${formatNumber(tilTokPlayCount)}\n❤️ Лайков: ${formatNumber(tilTokLikeCount)}\n💬 Комментариев: ${formatNumber(tilTokCommentCount)}`
+    const textDescriptionTikTokPost = `🎥 Автор: «${tilTokAuthor}»\n👀 Просмотров: ${formatNumber(tilTokPlayCount)}\n🤍️ Лайков: ${formatNumber(tilTokLikeCount)}\n💬 Комментариев: ${formatNumber(tilTokCommentCount)}`
     console.log(`[${messageId}] URL TikTok получен:`, tilTokUrl);
     console.log(`[${messageId}] TikTok информация: \n${textDescriptionTikTokPost}`);
 
