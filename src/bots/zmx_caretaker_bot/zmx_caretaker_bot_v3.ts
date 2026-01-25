@@ -24,7 +24,7 @@ enum LinkType {
 }
 
 class ZMXCaretakerBot {
-  private readonly tiktokUrlRegex = /(https?:\/\/)?(vm\.|www\.|m\.)?tiktok\.com\/[@A-Za-z0-9_\-.\/]+/i;
+  private readonly tiktokUrlRegex = /(https?:\/\/)?(vt\.|vm\.|www\.|m\.)?tiktok\.com\/[@A-Za-z0-9_\-.\/]+/i;
   private readonly instagramReelsRegex = /(https?:\/\/)?(www\.|m\.)?instagram\.com\/.*/i;
   private readonly webPageUrlRegex = /https?:\/\/(www\.)?[a-zA-Z0-9-._~:/?#\[\]@!$&'()*+,;=]{2,}/gi;
   private readonly botMentionRegex = /^@zmx_caretaker_bot\s+.+/i;
