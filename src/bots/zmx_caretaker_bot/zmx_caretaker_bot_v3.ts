@@ -31,8 +31,6 @@ class ZMXCaretakerBot {
   private messageQueue: { ctx: Context; messageId: string }[] = [];
   private linkPatterns: Map<LinkType, LinkPattern> = new Map();
   private isProcessing: boolean = false;
-  private username: string = '';
-  private botName: string = '';
   private bot: Telegraf;
 
   constructor() {
@@ -68,9 +66,6 @@ class ZMXCaretakerBot {
     this.bot.command('party', (ctx) => this.sendPartyPoll(ctx));
 
     this.bot.on('message', async (ctx: Context) => {
-      this.username = ctx.message?.from?.username || ctx.message?.from?.first_name || 'unknown';
-      this.botName = `@${this.bot.botInfo?.username}`;
-
       const messageId = `${ctx.message?.message_id}-${ctx.message?.chat.id}`;
       this.addToQueue(ctx, messageId);
     });
@@ -132,6 +127,10 @@ class ZMXCaretakerBot {
   private async handleMessage(ctx: Context, messageId: string): Promise<void> {
     if (!ctx.message || !('text' in ctx.message)) return;
 
+    // Получаем информацию о пользователе из контекста
+    const username = ctx.message.from?.username || ctx.message.from?.first_name || 'unknown';
+    const botName = `@${this.bot.botInfo?.username}`;
+
     const dateMessage = new Date(ctx.message.date * 1000).toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
@@ -145,7 +144,7 @@ class ZMXCaretakerBot {
     Logger.magenta('┌ Детали сообщения');
     Logger.magenta(`├ Чат: ${chatName} (${chatType})`);
     Logger.magenta(`├ Дата: ${dateMessage}`);
-    Logger.magenta(`├ Пользователь: ${this.username}`);
+    Logger.magenta(`├ Пользователь: ${username}`);
     Logger.magenta(`└ Сообщение: ${text}`);
 
     // Проверяем все паттерны ссылок
@@ -154,7 +153,7 @@ class ZMXCaretakerBot {
       if (match) {
         Logger.yellow(`[${messageId}] В чате найдена ссылка типа ${type}: ${match[0]}`);
         try {
-          await pattern.processor(ctx, match[0], messageId, chatID);
+          await pattern.processor(ctx, match[0], messageId, chatID, botName);
         } catch (error) {
           await this.handleError(error, ctx, messageId);
         }
@@ -163,15 +162,34 @@ class ZMXCaretakerBot {
     }
   }
 
-  private async chatServiceBotMention(ctx: Context, url: string, messageId: string): Promise<void> {
+  private createUserMention(ctx: Context): string {
+    const user = ctx.message?.from;
+
+    if (!user) {
+      return 'unknown';
+    }
+
+    const userId = user.id;
+    const displayName = user.username || user.first_name || 'unknown';
+
+    return `<a href="tg://user?id=${userId}">${displayName}</a>`;
+  }
+
+  private async chatServiceBotMention(
+    ctx: Context,
+    url: string,
+    messageId: string,
+    chatID: number,
+    botName?: string
+  ): Promise<void> {
     // Ранняя валидация входных данных
-    if (!ctx.message || !('text' in ctx.message)) return;
+    if (!ctx.message || !('text' in ctx.message) || !botName) return;
 
     const text = ctx.message.text || '';
-    const processedText = text.replaceAll(this.botName, '').trim();
+    const processedText = text.replaceAll(botName, '').trim();
 
     // Проверяем, начинается ли сообщение с упоминания бота
-    if (!text.startsWith(this.botName) || !ctx.message?.message_id) return;
+    if (!text.startsWith(botName) || !ctx.message?.message_id) return;
     Logger.log(`Сформированный текст запроса: "${processedText}"`);
 
     try {
@@ -251,7 +269,11 @@ class ZMXCaretakerBot {
     try {
       await ctx.deleteMessage();
       Logger.log(`[${messageId}] Исходное сообщение удалено`);
-      await ctx.reply(`@${this.username} TikTok ссылка удалена`, { disable_notification: true });
+      const userMention = this.createUserMention(ctx);
+      await ctx.reply(`${userMention} TikTok ссылка удалена`, {
+        disable_notification: true,
+        parse_mode: 'HTML'
+      });
       Logger.blue(`[${messageId}] Уведомление об удалении ссылки отправлено в чат`);
     } catch (error) {
       Logger.red(`[${messageId}] Не удалось удалить сообщение: недостаточно прав.`);
@@ -371,7 +393,11 @@ class ZMXCaretakerBot {
       try {
         await ctx.deleteMessage();
         Logger.log(`[${messageId}] Исходное сообщение удалено`);
-        await ctx.reply(`@${this.username} Instagram ссылка удалена`, { disable_notification: true });
+        const userMention = this.createUserMention(ctx);
+        await ctx.reply(`${userMention} Instagram ссылка удалена`, {
+          disable_notification: true,
+          parse_mode: 'HTML'
+        });
         Logger.blue(`[${messageId}] Уведомление об удалении Instagram ссылки отправлено в чат`);
       } catch (error) {
         Logger.red(`[${messageId}] Не удалось удалить сообщение: недостаточно прав.`);
