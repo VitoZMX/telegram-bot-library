@@ -153,8 +153,7 @@ class ZMXCaretakerBot {
       if (match) {
         Logger.yellow(`[${messageId}] В чате найдена ссылка типа ${type}: ${match[0]}`);
         try {
-          // Передаем username и botName в процессор
-          await pattern.processor(ctx, match[0], messageId, chatID, username, botName);
+          await pattern.processor(ctx, match[0], messageId, chatID, botName);
         } catch (error) {
           await this.handleError(error, ctx, messageId);
         }
@@ -163,25 +162,26 @@ class ZMXCaretakerBot {
     }
   }
 
-  private createUserMention(ctx: Context, fallbackUsername: string = 'unknown'): string {
+  private createUserMention(ctx: Context): string {
     const user = ctx.message?.from;
 
     if (!user) {
-      return fallbackUsername;
+      return 'unknown';
     }
 
     const userId = user.id;
-    const displayName = user.username || user.first_name || fallbackUsername;
+    const displayName = user.username || user.first_name || 'unknown';
 
     return `<a href="tg://user?id=${userId}">${displayName}</a>`;
   }
 
-  private async chatServiceBotMention( ctx: Context,
-                                       url: string,
-                                       messageId: string,
-                                       chatID: number,
-                                       username?: string,
-                                       botName?: string): Promise<void> {
+  private async chatServiceBotMention(
+    ctx: Context,
+    url: string,
+    messageId: string,
+    chatID: number,
+    botName?: string
+  ): Promise<void> {
     // Ранняя валидация входных данных
     if (!ctx.message || !('text' in ctx.message) || !botName) return;
 
@@ -255,9 +255,6 @@ class ZMXCaretakerBot {
     ctx: Context,
     url: string,
     messageId: string,
-    chatID: number,
-    username?: string,
-    botName?: string
   ): Promise<void> {
     const tilTokData = await getTikTokInfo(url).then((res) => res.data);
     const tilTokUrl = tilTokData.play;
@@ -272,7 +269,7 @@ class ZMXCaretakerBot {
     try {
       await ctx.deleteMessage();
       Logger.log(`[${messageId}] Исходное сообщение удалено`);
-      const userMention = this.createUserMention(ctx, username);
+      const userMention = this.createUserMention(ctx);
       await ctx.reply(`${userMention} TikTok ссылка удалена`, {
         disable_notification: true,
         parse_mode: 'HTML'
@@ -384,9 +381,6 @@ class ZMXCaretakerBot {
     ctx: Context,
     url: string,
     messageId: string,
-    chatID: number,
-    username?: string,
-    botName?: string
   ): Promise<void> {
     let instagramReelsStream: Readable | null = null;
 
@@ -399,7 +393,7 @@ class ZMXCaretakerBot {
       try {
         await ctx.deleteMessage();
         Logger.log(`[${messageId}] Исходное сообщение удалено`);
-        const userMention = this.createUserMention(ctx, username);
+        const userMention = this.createUserMention(ctx);
         await ctx.reply(`${userMention} Instagram ссылка удалена`, {
           disable_notification: true,
           parse_mode: 'HTML'
