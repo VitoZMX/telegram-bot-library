@@ -27,7 +27,11 @@ export async function getPageScreenshot(url: string): Promise<ScreenshotResponse
 
   try {
     browser = await chromium.launch();
-    page = await browser.newPage();
+    const context = await browser.newContext({
+      locale: 'ru-RU',
+      timezoneId: 'Europe/Minsk'
+    });
+    page = await context.newPage();
 
     const viewport: ViewportSizeType = {
       width: 1024,
