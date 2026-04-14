@@ -1,7 +1,7 @@
 import { Readable } from "stream";
 import { Logger } from "../../utils/Logger";
-import { Context, Telegraf } from 'telegraf';
 import { sleep } from "../../scripts/helpers";
+import { Context, Input, Telegraf } from 'telegraf';
 import { formatNumber } from "../../utils/formatNumber";
 import { StringHelper } from "../../utils/stringHelper";
 import { InputMediaPhoto } from "@telegraf/types/methods";
