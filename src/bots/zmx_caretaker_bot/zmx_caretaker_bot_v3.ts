@@ -404,10 +404,14 @@ class ZMXCaretakerBot {
         // Продолжаем выполнение без удаления сообщения
       }
 
-      await ctx.sendVideo({
-        source: instagramReelsStream,
-        filename: 'instagramReels.mp4'
-      });
+      await ctx.sendVideo(
+        Input.fromReadableStream(instagramReelsStream),
+        {
+          width: 720,
+          height: 1280,
+          supports_streaming: true,
+        }
+      );
       Logger.blue(`[${messageId}] Видео отправлено в чат`);
 
     } catch (error) {
