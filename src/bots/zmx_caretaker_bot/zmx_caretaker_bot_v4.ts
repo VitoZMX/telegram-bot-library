@@ -28,7 +28,7 @@ enum LinkType {
 class ZMXCaretakerBot {
   private readonly tiktokUrlRegex = /(https?:\/\/)?(vt\.|vm\.|www\.|m\.)?tiktok\.com\/[@A-Za-z0-9_\-.\/]+/i;
   private readonly instagramReelsRegex = /(https?:\/\/)?(www\.|m\.)?instagram\.com\/.*/i;
-  private readonly youTubeShortsRegex = /(https?:\/\/)?(www\.|m\.)?(youtube\.com\/shorts\/[\w-]+(?:\?[^\s]*)?|youtube\.com\/watch\?v=[\w-]+(?:&[^\s]*)?|youtu\.be\/[\w-]+(?:\?[^\s]*)?)/i;
+  private readonly youTubeShortsRegex = /https?:\/\/(?:www\.)?youtube\.com\/shorts\/[\w-]+(?:\?[^\s]*)?/i;
   private readonly webPageUrlRegex = /https?:\/\/(www\.)?[a-zA-Z0-9-._~:/?#\[\]@!$&'()*+,;=]{2,}/gi;
   private readonly botMentionRegex = /^@zmx_caretaker_bot\s+.+/i;
   private messageQueue: { ctx: Context; messageId: string }[] = [];
@@ -450,8 +450,8 @@ class ZMXCaretakerBot {
 
       const { buffer, info } = await getYouTubeShortsVideoBuffer(url);
       const captionParts = [
-        info.title ? `🎬 ${info.title}` : null,
-        info.uploader ? `👤 ${info.uploader}` : null,
+        info.title ? `🎬 Название: ${info.title}` : null,
+        info.uploader ? `👤 Канал: ${info.uploader}` : null,
         info.view_count ? `👀 Просмотров: ${formatNumber(info.view_count)}` : null,
         info.like_count ? `🤍 Лайков: ${formatNumber(info.like_count)}` : null,
       ].filter(Boolean);
