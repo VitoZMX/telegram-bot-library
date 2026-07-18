@@ -2,7 +2,7 @@ const config = {
   apps: [
     {
       name: "TG_caretaker",
-      script: "./build/src/bots/zmx_caretaker_bot/zmx_caretaker_bot_v3.js",
+      script: "./build/src/bots/zmx_caretaker_bot/zmx_caretaker_bot_v4.js",
       watch: ["./build/src"],
       ignore_watch: ["node_modules"],
       watch_delay: 1000,
