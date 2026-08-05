@@ -91,6 +91,14 @@ function isCombinedFormat(format: YouTubeFormat): boolean {
  @param formats - список форматов видео
  @return YouTubeFormat[] - отсортированный список форматов от большего разрешения к меньшему */
 function sortByHeightDesc(formats: YouTubeFormat[]): YouTubeFormat[] {
+
+    // Если есть разрешение 1080 брать его
+    const preferredFormat = formats.find(
+        format => format.format_note === '1080p' && format.ext === 'mp4'
+    );
+
+    if (preferredFormat) return [preferredFormat];
+
     return [...formats].sort((a, b) => {
         const heightDiff = (b.height || 0) - (a.height || 0);
         if (heightDiff !== 0) {
@@ -244,8 +252,10 @@ export async function getYouTubeShortsVideoBuffer(url: string): Promise<YouTubeS
                 `[YouTubeShorts] Скачивание видео ${highVideo.height ?? '?'}p и аудио из ${lowVideoWithAudio.height ?? '?'}p`
             );
 
-            await downloadFormat(url, highVideo.format_id, highVideoPath);
-            await downloadFormat(url, lowVideoWithAudio.format_id, lowVideoPath);
+            await Promise.all([
+                downloadFormat(url, highVideo.format_id, highVideoPath),
+                downloadFormat(url, lowVideoWithAudio.format_id, lowVideoPath)
+            ]);
 
             const downloadedHigh = join(tempDir, `high.${highVideo.ext}`);
             const downloadedLow = join(tempDir, `low.${lowVideoWithAudio.ext}`);
