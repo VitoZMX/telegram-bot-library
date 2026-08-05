@@ -197,7 +197,7 @@ async function mergeVideoAndAudio(videoPath: string, audioPath: string, outputPa
             .input(videoPath)
             .input(audioPath)
             .outputOptions([
-                '-c:v copy',
+                '-c:v libx264',
                 '-c:a aac',
                 '-b:a 192k',
                 '-shortest',
