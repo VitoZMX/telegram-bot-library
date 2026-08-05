@@ -1,5 +1,6 @@
 export interface YouTubeFormat {
     format_id: string;
+    format_note:string;
     ext: string;
     height?: number;
     width?: number;
