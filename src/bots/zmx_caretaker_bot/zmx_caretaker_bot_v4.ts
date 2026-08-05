@@ -1,19 +1,19 @@
-import { Readable } from "stream";
-import { Logger } from "../../utils/Logger";
-import { sleep } from "../../scripts/helpers";
-import { Context, Input, Telegraf } from 'telegraf';
-import { formatNumber } from "../../utils/formatNumber";
-import { StringHelper } from "../../utils/stringHelper";
-import { InputMediaPhoto } from "@telegraf/types/methods";
-import { LinkPattern } from "./types/ZMXCaretakerBotType";
-import { getPageScreenshot } from "../../socialMediaMethods/webPage/webPage";
-import { getInstagramVideo } from "../../socialMediaMethods/instagram/instagram";
-import { getMistralResponse } from "../../socialMediaMethods/assistants/mistral/mistral";
-import { textToAudioVoiceBuffer } from "../../socialMediaMethods/textToAudio/textToAudio";
+import {Readable} from "stream";
+import {Logger} from "../../utils/Logger";
+import {sleep} from "../../scripts/helpers";
+import {Context, Input, Telegraf} from 'telegraf';
+import {formatNumber} from "../../utils/formatNumber";
+import {StringHelper} from "../../utils/stringHelper";
+import {InputMediaPhoto} from "@telegraf/types/methods";
+import {LinkPattern, QueueTask} from "./types/ZMXCaretakerBotType";
+import {getPageScreenshot} from "../../socialMediaMethods/webPage/webPage";
+import {getInstagramVideo} from "../../socialMediaMethods/instagram/instagram";
+import {getMistralResponse} from "../../socialMediaMethods/assistants/mistral/mistral";
+import {textToAudioVoiceBuffer} from "../../socialMediaMethods/textToAudio/textToAudio";
+import {ScreenshotResponseType} from "../../socialMediaMethods/webPage/typos/webPageTypos";
+import {getTikTokInfo, getTikTokVideoStream} from "../../socialMediaMethods/TikTok/tikTok";
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
-import { ScreenshotResponseType } from "../../socialMediaMethods/webPage/typos/webPageTypos";
-import { getTikTokInfo, getTikTokVideoStream } from "../../socialMediaMethods/TikTok/tikTok";
-import { getYouTubeShortsVideoBuffer } from "../../socialMediaMethods/youTubeShorts/youTubeShorts";
+import {getYouTubeShortsVideoBuffer} from "../../socialMediaMethods/youTubeShorts/youTubeShorts";
 
 require('dotenv').config({ path: '.env.tokens' });
 
@@ -26,13 +26,17 @@ enum LinkType {
 }
 
 class ZMXCaretakerBot {
+  private readonly MAX_CONCURRENT_TASKS: number = 3;
+
   private readonly tiktokUrlRegex = /(https?:\/\/)?(vt\.|vm\.|www\.|m\.)?tiktok\.com\/[@A-Za-z0-9_\-.\/]+/i;
   private readonly instagramReelsRegex = /(https?:\/\/)?(www\.|m\.)?instagram\.com\/.*/i;
   private readonly youTubeShortsRegex = /https?:\/\/(?:www\.)?youtube\.com\/shorts\/[\w-]+(?:\?[^\s]*)?/i;
   private readonly webPageUrlRegex = /https?:\/\/(www\.)?[a-zA-Z0-9-._~:/?#\[\]@!$&'()*+,;=]{2,}/gi;
   private readonly botMentionRegex = /^@zmx_caretaker_bot\s+.+/i;
-  private messageQueue: { ctx: Context; messageId: string }[] = [];
+
+  private messageQueue: QueueTask[] = [];
   private linkPatterns: Map<LinkType, LinkPattern> = new Map();
+  private activeTasks: number = 0;
   private isProcessing: boolean = false;
   private bot: Telegraf;
 
@@ -41,6 +45,8 @@ class ZMXCaretakerBot {
     this.bot = new Telegraf(process.env.ZMX_CARETAKER_BOT);
     this.initializeLinkPatterns();
     this.initializeBot();
+
+    Logger.cyan(`🚀 Бот запущен с максимальным количеством параллельных потоков: ${this.MAX_CONCURRENT_TASKS}`);
   }
 
   private initializeLinkPatterns(): void {
@@ -80,38 +86,73 @@ class ZMXCaretakerBot {
   }
 
   private addToQueue(ctx: Context, messageId: string): void {
-    this.messageQueue.push({ ctx, messageId });
-    Logger.log(`Сообщение добавлено в очередь c id: [${messageId}]. Размер очереди: ${this.messageQueue.length}`);
+    this.messageQueue.push({ ctx, messageId, timestamp: Date.now() });
+    Logger.log(`📥 Сообщение добавлено в очередь. ID: [${messageId}]. Очередь: ${this.messageQueue.length}`);
     this.processQueue();
   }
 
   private async processQueue(): Promise<void> {
-    if (this.isProcessing || this.messageQueue.length === 0) return;
+    // Проверяем, не достигнут ли лимит активных задач
+    if (this.activeTasks >= this.MAX_CONCURRENT_TASKS) {
+      Logger.log(`⏳ Достигнут лимит потоков (${this.MAX_CONCURRENT_TASKS}). Ожидание...`);
+      return;
+    }
+
+    // Если очередь пуста, останавливаем обработку
+    if (this.messageQueue.length === 0) {
+      this.isProcessing = false;
+      return;
+    }
 
     this.isProcessing = true;
 
-    while (this.messageQueue.length > 0) {
-      const { ctx, messageId } = this.messageQueue[0];
-      try {
-        Logger.log('\n----------------//----------------//----------------//----------------\n');
-        console.log(`Начало обработки ${this.messageQueue.length} сообщения из очереди с id: [${messageId}]`);
-        await this.handleMessage(ctx, messageId);
-      } catch (error) {
-        console.error(`[${messageId}] Ошибка при обработке сообщения из очереди:`, error);
-      }
-      this.messageQueue.shift(); // Удаляем обработанное сообщение из очереди
-      Logger.yellow(`Сообщений в очереди: ${this.messageQueue.length}`);
+    // Запускаем задачи, пока есть свободные потоки и очередь не пуста
+    while (this.activeTasks < this.MAX_CONCURRENT_TASKS && this.messageQueue.length > 0) {
+      const task = this.messageQueue.shift()!;
+      this.activeTasks++;
 
-      Logger.log('\n----------------//----------------//----------------//----------------\n');
+      Logger.cyan(`🔄 Запуск задачи [${task.messageId}]. Активных потоков: ${this.activeTasks}/${this.MAX_CONCURRENT_TASKS}`);
+
+      // Запускаем задачу асинхронно без await
+      this.processTask(task);
     }
 
-    this.isProcessing = false;
+    // Если очередь опустела, сбрасываем флаг
+    if (this.messageQueue.length === 0) {
+      this.isProcessing = false;
+    }
   }
 
+  private async processTask(task: QueueTask): Promise<void> {
+    const { ctx, messageId } = task;
+
+    try {
+      Logger.log(`\n----------------//----------------//----------------//----------------\n`);
+      console.log(`▶️ Начало обработки сообщения [${messageId}] в потоке ${this.activeTasks}`);
+      await this.handleMessage(ctx, messageId);
+      Logger.green(`✅ Завершена обработка [${messageId}]`);
+    } catch (error) {
+      console.error(`❌ [${messageId}] Ошибка при обработке сообщения:`, error);
+    } finally {
+      // Уменьшаем счетчик активных задач
+      this.activeTasks--;
+      Logger.cyan(`🔄 Завершена задача [${messageId}]. Активных потоков: ${this.activeTasks}/${this.MAX_CONCURRENT_TASKS}`);
+
+      // Проверяем, есть ли еще задачи в очереди
+      if (this.messageQueue.length > 0) {
+        // Используем setImmediate для асинхронного запуска следующей задачи
+        setImmediate(() => this.processQueue());
+      }
+
+      Logger.log(`\n----------------//----------------//----------------//----------------\n`);
+    }
+  }
+
+  // Остальные методы остаются без изменений...
   private async getChatInfo(ctx: Context): Promise<{ chatName: string; chatType: string; chatID: number }> {
     const chat = await ctx.getChat();
     let chatName: string;
-    const chatType = chat.type; // 'private', 'group', 'supergroup', или 'channel'
+    const chatType = chat.type;
     const chatID = chat.id;
 
     switch (chat.type) {
