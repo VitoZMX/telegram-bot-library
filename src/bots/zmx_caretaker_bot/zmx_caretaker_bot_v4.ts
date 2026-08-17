@@ -518,6 +518,8 @@ class ZMXCaretakerBot {
         {
           supports_streaming: true,
           caption: caption || undefined,
+          width: 720,
+          height: 1280,
           parse_mode: 'HTML',
           disable_notification: true,
         }
