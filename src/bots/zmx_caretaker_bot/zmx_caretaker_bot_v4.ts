@@ -1,4 +1,4 @@
-import {Readable} from "stream";
+import {createHash} from "crypto";
 import {Logger} from "../../utils/Logger";
 import {sleep} from "../../scripts/helpers";
 import {Context, Input, Telegraf} from 'telegraf';
@@ -14,6 +14,18 @@ import {ScreenshotResponseType} from "../../socialMediaMethods/webPage/typos/web
 import {getTikTokInfo, getTikTokVideoStream} from "../../socialMediaMethods/TikTok/tikTok";
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
 import {getYouTubeShortsVideoBuffer} from "../../socialMediaMethods/youTubeShorts/youTubeShorts";
+import {
+  CACHE_KEY_PREFIX,
+  CACHE_TTL_AI_RESPONSE_MS,
+  CACHE_TTL_CHAT_INFO_MS,
+  CACHE_TTL_INSTAGRAM_VIDEO_MS,
+  CACHE_TTL_TEXT_TO_AUDIO_MS,
+  CACHE_TTL_TIKTOK_INFO_MS,
+  CACHE_TTL_TIKTOK_VIDEO_MS,
+  CACHE_TTL_WEBPAGE_SCREENSHOT_MS,
+  CACHE_TTL_YOUTUBE_SHORTS_MS,
+} from "../../utils/cache/cacheConstants";
+import {buildCacheKey, cacheManager, normalizeCacheUrl, readableToBuffer} from "../../utils/cache/cacheManager";
 
 require('dotenv').config({ path: '.env.tokens' });
 
@@ -148,8 +160,7 @@ class ZMXCaretakerBot {
     }
   }
 
-  // Остальные методы остаются без изменений...
-  private async getChatInfo(ctx: Context): Promise<{ chatName: string; chatType: string; chatID: number }> {
+  private async fetchChatInfo(ctx: Context): Promise<{ chatName: string; chatType: string; chatID: number }> {
     const chat = await ctx.getChat();
     let chatName: string;
     const chatType = chat.type;
@@ -171,6 +182,24 @@ class ZMXCaretakerBot {
     }
 
     return { chatName, chatType, chatID };
+  }
+
+  private async getChatInfo(ctx: Context): Promise<{ chatName: string; chatType: string; chatID: number }> {
+    const chatId = ctx.chat?.id ?? ctx.message?.chat.id;
+
+    if (!chatId) {
+      return this.fetchChatInfo(ctx);
+    }
+
+    return cacheManager.getOrFetch(
+      buildCacheKey(CACHE_KEY_PREFIX.CHAT_INFO, chatId),
+      CACHE_TTL_CHAT_INFO_MS,
+      () => this.fetchChatInfo(ctx)
+    );
+  }
+
+  private hashText(text: string): string {
+    return createHash('md5').update(text).digest('hex');
   }
 
   private async handleMessage(ctx: Context, messageId: string): Promise<void> {
@@ -242,19 +271,24 @@ class ZMXCaretakerBot {
     Logger.log(`Сформированный текст запроса: "${processedText}"`);
 
     try {
-      // Параллельный запуск с резервным вариантом
-      const mistralResponse = await getMistralResponse(processedText)
-        .catch(() => null);
+      const responseText = await cacheManager.getOrFetch(
+        buildCacheKey(CACHE_KEY_PREFIX.AI_RESPONSE, this.hashText(processedText)),
+        CACHE_TTL_AI_RESPONSE_MS,
+        async () => {
+          const mistralResponse = await getMistralResponse(processedText)
+            .catch(() => null);
 
-      // Если Mistral не вернул результат, пробуем HuggingFace
-      const responseText = mistralResponse?.trim() ||
-        await new HuggingFaceChatBot().generateResponse(processedText)
-          .catch(() => null);
+          const text = mistralResponse?.trim() ||
+            await new HuggingFaceChatBot().generateResponse(processedText)
+              .catch(() => null);
 
-      // Если ни один сервис не вернул ответ, бросаем ошибку
-      if (!responseText) {
-        throw new Error('Не удалось получить ответ от AI');
-      }
+          if (!text) {
+            throw new Error('Не удалось получить ответ от AI');
+          }
+
+          return text;
+        }
+      );
 
       // Отправка ответа
       try {
@@ -265,7 +299,11 @@ class ZMXCaretakerBot {
         console.log(`Длинна ответа ${responseText.length}, максимум: ${maxLengthMess} и в ней ${codeInText} элемент кода`)
 
         if (responseText.length <= maxLengthMess || !codeInText) {
-          audioBuffer = await textToAudioVoiceBuffer(responseText)
+          audioBuffer = await cacheManager.getOrFetchBuffer(
+            buildCacheKey(CACHE_KEY_PREFIX.TEXT_TO_AUDIO, this.hashText(responseText)),
+            CACHE_TTL_TEXT_TO_AUDIO_MS,
+            () => textToAudioVoiceBuffer(responseText)
+          );
         } else {
           Logger.log(`Текст ответа не будет преобразован в аудио`);
         }
@@ -305,7 +343,13 @@ class ZMXCaretakerBot {
     url: string,
     messageId: string,
   ): Promise<void> {
-    const tilTokData = await getTikTokInfo(url).then((res) => res.data);
+    const tikTokCacheKey = buildCacheKey(CACHE_KEY_PREFIX.TIKTOK_INFO, normalizeCacheUrl(url));
+    const tikTokResponse = await cacheManager.getOrFetch(
+      tikTokCacheKey,
+      CACHE_TTL_TIKTOK_INFO_MS,
+      () => getTikTokInfo(url)
+    );
+    const tilTokData = tikTokResponse.data;
     const tilTokUrl = tilTokData.play;
     const tilTokAuthor = tilTokData.author.nickname;
     const tilTokPlayCount = tilTokData.play_count;
@@ -401,25 +445,25 @@ class ZMXCaretakerBot {
       } catch {
         /* Обработка когда видео могло не отправиться из-за большого объема потока */
         Logger.log(`[${messageId}] Попытка отправить видео через поток`);
-        let tikTokVideoStream: Readable | null = await getTikTokVideoStream(tilTokUrl)
-        const videoInputFile = { source: tikTokVideoStream as Readable };
+        const videoCacheKey = buildCacheKey(CACHE_KEY_PREFIX.TIKTOK_VIDEO, normalizeCacheUrl(tilTokUrl));
+        const tikTokVideoBuffer = await cacheManager.getOrFetchBuffer(
+          videoCacheKey,
+          CACHE_TTL_TIKTOK_VIDEO_MS,
+          async () => readableToBuffer(await getTikTokVideoStream(tilTokUrl))
+        );
 
         try {
           await ctx.sendMediaGroup([
             {
               type: 'video',
-              media: videoInputFile,
+              media: { source: tikTokVideoBuffer },
               supports_streaming: true,
               caption: textDescriptionTikTokPost,
               parse_mode: 'HTML'
             }])
           Logger.blue(`[${messageId}] Видео отправлено в чат`);
-        } finally {
-          // Очищаем поток после использования
-          if (tikTokVideoStream && tikTokVideoStream.destroy) {
-            tikTokVideoStream.destroy();
-            tikTokVideoStream = null;
-          }
+        } catch (streamError) {
+          throw streamError;
         }
       }
     }
@@ -431,13 +475,15 @@ class ZMXCaretakerBot {
     url: string,
     messageId: string,
   ): Promise<void> {
-    let instagramReelsStream: Readable | null = null;
-
     try {
-      instagramReelsStream = await getInstagramVideo(url);
-      if (typeof instagramReelsStream?.pipe === 'function') {
-        console.log(`[${messageId}] Поток Instagram Reels получен`);
-      }
+      const instagramCacheKey = buildCacheKey(CACHE_KEY_PREFIX.INSTAGRAM_VIDEO, normalizeCacheUrl(url));
+      const instagramVideoBuffer = await cacheManager.getOrFetchBuffer(
+        instagramCacheKey,
+        CACHE_TTL_INSTAGRAM_VIDEO_MS,
+        async () => readableToBuffer(await getInstagramVideo(url))
+      );
+
+      console.log(`[${messageId}] Видео Instagram Reels получено, размер: ${instagramVideoBuffer.length} байт`);
 
       try {
         await ctx.deleteMessage();
@@ -454,7 +500,7 @@ class ZMXCaretakerBot {
       }
 
       await ctx.sendVideo(
-        Input.fromReadableStream(instagramReelsStream),
+        Input.fromBuffer(instagramVideoBuffer, 'instagram_reel.mp4'),
         {
           width: 720,
           height: 1280,
@@ -471,11 +517,6 @@ class ZMXCaretakerBot {
         reply_to_message_id: ctx.message.message_id,
       });
       Logger.blue(`[${messageId}] Уведомление о неудаче получения видео отправлено в чат`);
-    } finally {
-      if (instagramReelsStream && typeof instagramReelsStream.destroy === 'function') {
-        instagramReelsStream.destroy();
-        instagramReelsStream = null;
-      }
     }
 
     Logger.green(`[${messageId}] Обработка ссылки Instagram Reels завершено УСПЕШНО!`);
@@ -489,7 +530,18 @@ class ZMXCaretakerBot {
     try {
       console.log(`[${messageId}] Начало обработки YouTube Shorts: ${url}`);
 
-      const { buffer, info } = await getYouTubeShortsVideoBuffer(url);
+      const youtubeCacheKey = buildCacheKey(CACHE_KEY_PREFIX.YOUTUBE_SHORTS, normalizeCacheUrl(url));
+      const { buffer, meta: info } = await cacheManager.getOrFetchBufferWithMeta(
+        youtubeCacheKey,
+        CACHE_TTL_YOUTUBE_SHORTS_MS,
+        async () => {
+          const result = await getYouTubeShortsVideoBuffer(url);
+          return {
+            buffer: result.buffer,
+            meta: result.info,
+          };
+        }
+      );
       const captionParts = [
         info.title ? `🎬 Название: ${info.title}` : null,
         info.uploader ? `👤 Канал: ${info.uploader}` : null,
@@ -548,11 +600,19 @@ class ZMXCaretakerBot {
     try {
       console.log(`[${messageId}] Начало обработки скриншота для ${url}`);
 
-      const screenshotData: ScreenshotResponseType = await getPageScreenshot(url);
+      const screenshotCacheKey = buildCacheKey(CACHE_KEY_PREFIX.WEBPAGE_SCREENSHOT, normalizeCacheUrl(url));
+      const screenshot = await cacheManager.getOrFetchBuffer(
+        screenshotCacheKey,
+        CACHE_TTL_WEBPAGE_SCREENSHOT_MS,
+        async () => {
+          const screenshotData: ScreenshotResponseType = await getPageScreenshot(url);
+          return screenshotData.screenshot;
+        }
+      );
       Logger.log(`[${messageId}] Скриншот создан`);
 
       const photoOptions = {
-        source: screenshotData.screenshot
+        source: screenshot
       };
 
       if (ctx.message?.message_id) {

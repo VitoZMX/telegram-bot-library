@@ -6,7 +6,7 @@
     "build:ecosystem": "tsc ecosystem.config.ts --outDir build",
     "start:pm2": "npm run build && npm run build:ecosystem && pm2 start build/ecosystem.config.js",
     "stop": "pm2 stop all",
-    "zmx_caretaker_bot3": "ts-node src/bots/zmx_caretaker_bot/zmx_caretaker_bot_v3.ts",
+    "zmx_caretaker_bot4": "ts-node src/bots/zmx_caretaker_bot/zmx_caretaker_bot_v4.ts",
     "zmx_quill_bot1": "ts-node src/bots/zmx_quill_bot/zmx_quill_bot_v1.ts"
   },
   "dependencies": {
