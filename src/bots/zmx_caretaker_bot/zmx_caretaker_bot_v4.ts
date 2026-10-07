@@ -15,6 +15,7 @@ import {getTikTokInfo, getTikTokVideoStream} from "../../socialMediaMethods/TikT
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
 import {getYouTubeShortsVideoBuffer} from "../../socialMediaMethods/youTubeShorts/youTubeShorts";
 import {
+  CACHE_CLEANUP_INTERVAL_MS,
   CACHE_KEY_PREFIX,
   CACHE_TTL_AI_RESPONSE_MS,
   CACHE_TTL_CHAT_INFO_MS,
@@ -57,6 +58,7 @@ class ZMXCaretakerBot {
     this.bot = new Telegraf(process.env.ZMX_CARETAKER_BOT);
     this.initializeLinkPatterns();
     this.initializeBot();
+    cacheManager.startScheduledCleanup(CACHE_CLEANUP_INTERVAL_MS);
 
     Logger.cyan(`🚀 Бот запущен с максимальным количеством параллельных потоков: ${this.MAX_CONCURRENT_TASKS}`);
   }
@@ -683,6 +685,7 @@ class ZMXCaretakerBot {
   }
 
   public async stop(reason: string): Promise<void> {
+    cacheManager.stopScheduledCleanup();
     Logger.red(`Остановка бота по причине: ${reason}`);
     await this.bot.stop(reason);
   }

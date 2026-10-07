@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { createHash } from 'crypto';
 import { Logger } from '../Logger';
 import { Readable } from 'stream';
@@ -14,6 +14,13 @@ interface MemoryCacheEntry<T> {
 interface DiskCacheMeta<TMeta = unknown> {
   expiresAt: number;
   meta?: TMeta;
+}
+
+export interface CacheCleanupResult {
+  memoryRemoved: number;
+  diskEntriesRemoved: number;
+  orphanedBinRemoved: number;
+  freedBytes: number;
 }
 
 /** Метод для нормализации URL перед использованием в ключе кэша
@@ -44,6 +51,7 @@ export function buildCacheKey(prefix: string, value: string | number): string {
 
 class CacheManager {
   private memoryCache = new Map<string, MemoryCacheEntry<unknown>>();
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   private hashKey(key: string): string {
     return createHash('md5').update(key).digest('hex');
@@ -77,6 +85,168 @@ class CacheManager {
     if (existsSync(dataPath)) {
       unlinkSync(dataPath);
     }
+  }
+
+  private getFileSizeSafe(filePath: string): number {
+    if (!existsSync(filePath)) {
+      return 0;
+    }
+
+    try {
+      return statSync(filePath).size;
+    } catch {
+      return 0;
+    }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+
+    if (bytes < 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+
+  /** Метод для очистки протухших записей in-memory кэша
+ @return number - количество удалённых записей */
+  private cleanupExpiredMemoryCache(): number {
+    let removed = 0;
+
+    for (const [key, entry] of this.memoryCache.entries()) {
+      if (this.isExpired(entry.expiresAt)) {
+        this.memoryCache.delete(key);
+        removed++;
+      }
+    }
+
+    return removed;
+  }
+
+  /** Метод для очистки протухших и битых записей disk-кэша в `.cache`
+ @return статистика удаления */
+  private cleanupExpiredDiskCache(): Pick<CacheCleanupResult, 'diskEntriesRemoved' | 'orphanedBinRemoved' | 'freedBytes'> {
+    if (!existsSync(CACHE_DIR)) {
+      return {
+        diskEntriesRemoved: 0,
+        orphanedBinRemoved: 0,
+        freedBytes: 0,
+      };
+    }
+
+    const files = readdirSync(CACHE_DIR);
+    const metaFiles = files.filter((file) => file.endsWith('.meta.json'));
+    const orphanBinFiles = new Set(files.filter((file) => file.endsWith('.bin')));
+
+    let diskEntriesRemoved = 0;
+    let freedBytes = 0;
+
+    for (const metaFile of metaFiles) {
+      const hash = metaFile.replace('.meta.json', '');
+      const metaPath = join(CACHE_DIR, metaFile);
+      const dataPath = join(CACHE_DIR, `${hash}.bin`);
+      const binFileName = `${hash}.bin`;
+
+      let shouldDelete = false;
+
+      try {
+        const diskMeta = JSON.parse(readFileSync(metaPath, 'utf-8')) as DiskCacheMeta;
+        shouldDelete = this.isExpired(diskMeta.expiresAt);
+      } catch {
+        shouldDelete = true;
+      }
+
+      if (shouldDelete) {
+        freedBytes += this.getFileSizeSafe(metaPath) + this.getFileSizeSafe(dataPath);
+
+        if (existsSync(metaPath)) {
+          unlinkSync(metaPath);
+        }
+
+        if (existsSync(dataPath)) {
+          unlinkSync(dataPath);
+        }
+
+        orphanBinFiles.delete(binFileName);
+        diskEntriesRemoved++;
+      } else {
+        orphanBinFiles.delete(binFileName);
+      }
+    }
+
+    let orphanedBinRemoved = 0;
+
+    for (const orphanBin of orphanBinFiles) {
+      const dataPath = join(CACHE_DIR, orphanBin);
+      freedBytes += this.getFileSizeSafe(dataPath);
+
+      if (existsSync(dataPath)) {
+        unlinkSync(dataPath);
+      }
+
+      orphanedBinRemoved++;
+    }
+
+    return {
+      diskEntriesRemoved,
+      orphanedBinRemoved,
+      freedBytes,
+    };
+  }
+
+  /** Метод для полной очистки протухших записей memory и disk кэша
+ @return CacheCleanupResult - статистика очистки */
+  async cleanupExpiredCaches(): Promise<CacheCleanupResult> {
+    const memoryRemoved = this.cleanupExpiredMemoryCache();
+    const diskStats = this.cleanupExpiredDiskCache();
+    const result: CacheCleanupResult = {
+      memoryRemoved,
+      ...diskStats,
+    };
+
+    Logger.cyan(
+      `[Cache] Очистка завершена: memory=${result.memoryRemoved}, disk=${result.diskEntriesRemoved}, orphan.bin=${result.orphanedBinRemoved}, freed=${this.formatBytes(result.freedBytes)}`
+    );
+
+    return result;
+  }
+
+  /** Метод для запуска плановой очистки кэша по интервалу
+ @param intervalMs - интервал между очистками в миллисекундах */
+  startScheduledCleanup(intervalMs: number): void {
+    if (this.cleanupTimer) {
+      return;
+    }
+
+    void this.cleanupExpiredCaches();
+
+    this.cleanupTimer = setInterval(() => {
+      void this.cleanupExpiredCaches();
+    }, intervalMs);
+
+    if (this.cleanupTimer && typeof this.cleanupTimer.unref === 'function') {
+      this.cleanupTimer.unref();
+    }
+
+    Logger.cyan(`[Cache] Плановая очистка включена, интервал: ${Math.round(intervalMs / (60 * 60 * 1000))} ч.`);
+  }
+
+  /** Метод для остановки плановой очистки кэша */
+  stopScheduledCleanup(): void {
+    if (!this.cleanupTimer) {
+      return;
+    }
+
+    clearInterval(this.cleanupTimer);
+    this.cleanupTimer = null;
+    Logger.log('[Cache] Плановая очистка остановлена');
   }
 
   /** Метод для получения значения из in-memory кэша
