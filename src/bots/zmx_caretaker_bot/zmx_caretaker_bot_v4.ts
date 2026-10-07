@@ -58,6 +58,7 @@ class ZMXCaretakerBot {
     this.bot = new Telegraf(process.env.ZMX_CARETAKER_BOT);
     this.initializeLinkPatterns();
     this.initializeBot();
+    cacheManager.startScheduledCleanup(CACHE_CLEANUP_INTERVAL_MS);
 
     Logger.cyan(`🚀 Бот запущен с максимальным количеством параллельных потоков: ${this.MAX_CONCURRENT_TASKS}`);
   }
