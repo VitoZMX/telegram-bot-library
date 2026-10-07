@@ -15,6 +15,7 @@ import {getTikTokInfo, getTikTokVideoStream} from "../../socialMediaMethods/TikT
 import HuggingFaceChatBot from "../../socialMediaMethods/assistants/huggingface/huggingFace";
 import {getYouTubeShortsVideoBuffer} from "../../socialMediaMethods/youTubeShorts/youTubeShorts";
 import {
+  CACHE_CLEANUP_INTERVAL_MS,
   CACHE_KEY_PREFIX,
   CACHE_TTL_AI_RESPONSE_MS,
   CACHE_TTL_CHAT_INFO_MS,
