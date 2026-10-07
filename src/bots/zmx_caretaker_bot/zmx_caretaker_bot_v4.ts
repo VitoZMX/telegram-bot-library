@@ -685,6 +685,7 @@ class ZMXCaretakerBot {
   }
 
   public async stop(reason: string): Promise<void> {
+    cacheManager.stopScheduledCleanup();
     Logger.red(`Остановка бота по причине: ${reason}`);
     await this.bot.stop(reason);
   }
