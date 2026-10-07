@@ -22,6 +22,9 @@ export const CACHE_TTL_AI_RESPONSE_MS = 60 * 60 * 1000;
 /** Время жизни кэша аудио из текста (6 часов) */
 export const CACHE_TTL_TEXT_TO_AUDIO_MS = 6 * 60 * 60 * 1000;
 
+/** Интервал плановой очистки протухшего кэша (48 часов) */
+export const CACHE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000 * 2;
+
 export const CACHE_KEY_PREFIX = {
   CHAT_INFO: 'chat-info',
   TIKTOK_INFO: 'tiktok-info',
